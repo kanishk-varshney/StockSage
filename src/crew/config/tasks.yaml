@@ -1,0 +1,268 @@
+analyze_valuation_ratios:
+  description: >
+    Analyze the valuation, profitability, and intrinsic value for {symbol}.
+
+    Steps:
+    1. Use the csv_reader tool to read company_info.csv for {symbol} — extract current price
+       (currentPrice), EPS (trailingEps), book value (bookValue), PE ratio (trailingPE),
+       forward PE (forwardPE), enterprise value (enterpriseValue), EBITDA (ebitda), revenue per
+       share (revenuePerShare), earnings growth (earningsGrowth), profit margins (profitMargins),
+       return on equity (returnOnEquity), return on assets (returnOnAssets), gross margins
+       (grossMargins), operating margins (operatingMargins), dividend rate (dividendRate),
+       beta, shares outstanding (sharesOutstanding).
+    2. Use the csv_reader tool to read income_statement.csv and balance_sheet.csv for additional
+       data (net income, total assets, shareholders equity, cost of revenue, operating income).
+    3. Use the csv_reader tool to read cash_flow.csv — extract Free Cash Flow for DCF.
+    4. Use the financial_calculator to compute valuation ratios: pe_ratio, pb_ratio, ps_ratio,
+       ev_ebitda, peg_ratio.
+    5. Use the financial_calculator to compute profitability ratios: roe, roa, gross_margin,
+       net_margin, operating_margin.
+    6. Use the financial_calculator to estimate intrinsic value with ALL of these methods:
+       - dcf: Use the most recent Free Cash Flow, an estimated growth rate (from earningsGrowth
+         or revenue growth), discount rate of 0.10, terminal_growth_rate of 0.03, years=5, and
+         sharesOutstanding from company_info.
+       - ddm: Use dividendRate as dividend_per_share (if the company pays dividends). Estimate
+         dividend_growth_rate from historical dividend data or use 5%. Use required_return of 0.10.
+       - graham_number: Use trailingEps and bookValue from company_info.
+       - relative_valuation: Use trailingEps, sector_pe of 25 (technology sector average),
+         and market_pe of 22 (S&P 500 average). Adjust sector_pe if the company is not in tech.
+    7. Compare ALL intrinsic value estimates to the current stock price and clearly state whether
+       the stock appears undervalued, fairly valued, or overvalued by each method.
+
+    IMPORTANT:
+    - Write ONLY human-readable analysis. Never include JSON, raw data, or tool outputs.
+    - Use concise evidence-first lines; avoid generic boilerplate/disclaimers.
+    - Add source tags for factual claims where possible (e.g., [source: company_info.csv]).
+  expected_output: >
+    A structured analysis with three sections:
+
+    HOW EXPENSIVE IS THIS STOCK?
+    For each ratio (P/E, P/B, P/S, EV/EBITDA, PEG), state the value and explain what it means
+    in simple terms. Example: "P/E Ratio: 33.4x — You're paying $33 for every $1 the company
+    earns. That's expensive compared to the average stock (~22x), which means investors expect
+    big things from this company going forward."
+
+    HOW PROFITABLE IS THIS COMPANY?
+    For each ratio (ROE, ROA, margins), state the value and explain in plain language whether
+    the company is good at making money. Example: "For every $1 of revenue, the company keeps
+    about 27 cents as profit (net margin: 27%) — that's excellent."
+
+    WHAT IS THIS STOCK ACTUALLY WORTH?
+    Present results from all four valuation models, compare each to the current price, and
+    clearly say whether the stock looks cheap, fair, or expensive.
+    End with a one-line verdict: "Overall, the stock appears [undervalued/fairly valued/overvalued]
+    based on [X of 4] models."
+    Keep output compact and metric-focused.
+  agent: ratio_analyst
+
+analyze_price_performance:
+  description: >
+    Analyze how {symbol} stock has performed and how risky it is.
+
+    Steps:
+    1. Use the csv_reader tool to read historical_prices.csv for {symbol}.
+    2. Use the csv_reader tool to read market_index.csv (S&P 500 or equivalent benchmark).
+    3. Use the csv_reader tool to read sector_index.csv (sector ETF benchmark).
+    4. Use the financial_calculator tool to compute:
+       - Total and annualized returns from the price series
+       - Annualized volatility
+       - Sharpe ratio (use risk_free_rate=0.04)
+       - Beta vs the market index
+       - Maximum drawdown
+    5. Compare the stock's performance to the benchmark indices.
+    6. Explain each metric as if talking to someone who just started investing.
+
+    IMPORTANT:
+    - Write ONLY human-readable analysis. Never include JSON, raw data, or tool outputs.
+    - Keep to concise lines with evidence/value references; avoid generic disclaimers.
+    - Add source tags where practical (e.g., [source: historical_prices.csv], [source: market_index.csv]).
+  expected_output: >
+    A structured analysis covering:
+
+    HOW HAS THIS STOCK DONE?
+    Period returns compared to the market. Example: "Over the past year, this stock gained about
+    14% while the overall market (S&P 500) gained 11.5%. So it beat the market by about 2.5%."
+
+    HOW RISKY IS IT?
+    Each risk metric explained in plain language with dollar examples where possible.
+    Example: "If you invested $10,000 at the worst possible time last year, your investment
+    would have temporarily dropped to about $8,200 before recovering (max drawdown: -18%)."
+    Example: "When the overall market drops 10%, this stock tends to drop about 11%
+    (beta: 1.1) — slightly more volatile than average."
+
+    THE BOTTOM LINE ON RISK VS REWARD:
+    2-4 concise lines: is the risk worth the return? How does this compare to buying an index fund?
+  agent: performance_analyst
+
+analyze_financial_health:
+  description: >
+    Tell the financial story of {symbol} — is the company getting stronger or weaker?
+
+    Steps:
+    1. Use the csv_reader tool to read income_statement.csv and quarterly_income_statement.csv
+       for {symbol} — focus on Total Revenue, Net Income, Operating Income, EBITDA, Cost of
+       Revenue across all available years.
+    2. Use the csv_reader tool to read balance_sheet.csv — focus on Total Assets, Total Debt,
+       Stockholders Equity, Current Assets, Current Liabilities, Cash And Cash Equivalents.
+    3. Use the csv_reader tool to read cash_flow.csv — focus on Free Cash Flow, Operating Cash
+       Flow, Capital Expenditure, Repurchase Of Capital Stock.
+    4. Calculate year-over-year growth rates for revenue and earnings.
+    5. Use the financial_calculator tool to compute debt_to_equity and current_ratio.
+    6. Tell the company's financial story: is it growing? Getting more efficient? Taking on
+       too much debt? Generating real cash?
+
+    IMPORTANT:
+    - Write ONLY human-readable analysis. Never include JSON, raw data, or tool outputs.
+    - Keep concise and avoid generic disclaimer language.
+    - Add source tags for factual claims where possible.
+  expected_output: >
+    A structured analysis with sections:
+
+    IS THE COMPANY GROWING?
+    Revenue and earnings trends told as a story. Example: "Sales grew from $383 billion to
+    $436 billion over the past three years — steady growth of about 6-7% per year. More
+    importantly, profits grew even faster, meaning the company is getting better at turning
+    sales into actual money."
+
+    IS THE COMPANY FINANCIALLY HEALTHY?
+    Debt and balance sheet explained simply. Example: "The company owes about $90 billion
+    in debt, but it also has $67 billion in cash. That's a manageable debt load for a
+    company this size, though it's worth keeping an eye on."
+
+    IS THE COMPANY GENERATING REAL CASH?
+    Cash flow trends and how the company uses its money. Example: "The company generated
+    about $99 billion in real cash last year. It spent $91 billion buying back its own
+    stock (which helps existing shareholders) and paid $15 billion in dividends."
+  agent: fundamental_analyst
+
+analyze_market_sentiment:
+  description: >
+    Find out what the market thinks about {symbol} right now.
+
+    Steps:
+    1. Use the search tool (SerperDevTool) to search for: "{symbol} stock news latest"
+    2. Use the search tool to search for: "{symbol} stock analyst rating outlook 2026"
+    3. Use the search tool to search for: "{symbol} stock risks concerns"
+    4. Use the csv_reader tool to read recommendations.csv for {symbol} — analyze the
+       distribution of strongBuy, buy, hold, sell, strongSell ratings.
+    5. Use the csv_reader tool to read insider_transactions.csv — look for recent insider
+       buying or selling patterns.
+    6. Use the csv_reader tool to read institutional_holders.csv — note top holders and
+       any recent position changes (pctChange column).
+    7. Use the csv_reader tool to read news.csv — review saved news headlines.
+    8. Label every finding as [POSITIVE], [NEGATIVE], or [NEUTRAL] and explain why.
+
+    IMPORTANT: Write ONLY human-readable analysis. Never include JSON, raw data, or tool outputs.
+  expected_output: >
+    A structured sentiment analysis with citations:
+
+    WHAT'S IN THE NEWS?
+    Top 3-5 recent developments with signal labels and plain-English explanations.
+    Include source links inline where possible (actual URLs, not just source names).
+    Example: "[POSITIVE] The company reported record revenue from its services division —
+    this matters because services are more predictable and profitable than hardware sales."
+
+    WHAT DO ANALYSTS THINK? [source: recommendations.csv]
+    Summary of Wall Street ratings in plain terms. Example: "Out of 47 professional analysts,
+    29 say Buy, 16 say Hold, and 2 say Sell. The majority is optimistic, but the large number
+    of Holds suggests some think the stock is fully priced."
+
+    WHAT ARE INSIDERS AND BIG INVESTORS DOING? [source: insider_transactions.csv / institutional_holders.csv]
+    Notable moves with context. Example: "[NEUTRAL] The biggest investment firms (Vanguard,
+    BlackRock) still hold large positions and haven't sold — that's a quiet vote of confidence."
+
+    OVERALL MOOD:
+    2-4 short lines summarizing whether the market feeling is positive, negative, or mixed.
+    Avoid generic disclaimers.
+  agent: sentiment_analyst
+
+review_analysis:
+  description: >
+    You are the quality control expert. Review ALL of the analysis from the four specialists
+    above for {symbol}. Your job:
+
+    1. ACCURACY CHECK: Do the numbers the analysts quoted match each other? Did anyone use
+       a wrong figure or misinterpret data?
+    2. MISLEADING METRICS: Flag any numbers that look extreme or could confuse a regular
+       investor. Explain WHY they look unusual (e.g., "ROE of 152% seems impossibly high,
+       but it's because massive stock buybacks reduced the equity base — the company is
+       actually very profitable, this ratio just looks inflated").
+    3. CONTRADICTIONS: Did one analyst say something that conflicts with another? Resolve it.
+    4. MISSING CONTEXT: Is there anything important the analysts missed or glossed over?
+
+    Be concise. Only flag things that genuinely matter. If the analysis is solid, confirm
+    the key findings briefly and move on.
+
+    IMPORTANT: Write ONLY human-readable notes. Never include JSON, raw data, or tool outputs.
+  expected_output: >
+    A brief QA review with:
+
+    DATA ACCURACY: Confirm numbers are consistent, or flag specific discrepancies.
+
+    WATCH OUT FOR THESE NUMBERS: Any metrics that need extra context for a regular investor.
+    Example: "The return on equity (ROE) of 152% looks extreme. This is because the company
+    has aggressively bought back its own shares, shrinking the equity denominator. The
+    company IS very profitable — but this specific number overstates it. A more useful
+    measure here is return on assets (ROA) at 24%, which is genuinely excellent."
+
+    KEY FINDINGS CONFIRMED: 2-3 sentence summary of what the analysis got right.
+  agent: market_reviewer
+  context:
+    - analyze_valuation_ratios
+    - analyze_price_performance
+    - analyze_financial_health
+    - analyze_market_sentiment
+
+generate_investment_report:
+  description: >
+    You have received analysis from four specialists and a quality review for {symbol}.
+    Your job is to give a clear, honest investment recommendation.
+
+    Write as if you're advising a friend who asked "should I buy this stock?" Be direct.
+    Use the analysts' numbers but explain them simply. Mention the reviewer's flags if relevant.
+
+    IMPORTANT: Write ONLY human-readable analysis. Never include JSON, raw data, or tool outputs.
+    You MUST end your response with a VERDICT line in exactly this format:
+    VERDICT: [STRONG BUY / BUY / HOLD / SELL / STRONG SELL] | Confidence: [High / Medium / Low]
+  expected_output: >
+    A clear investment report with concise sections and citations:
+
+    COMPANY BASICS:
+    - Company name and symbol
+    - Sector/theme and segment
+    - Peers (4-6 names if available)
+    - Add source tags where possible (e.g., [source: company_info.csv])
+
+    WHAT DOES THIS COMPANY DO?
+    2-3 short lines a teenager could understand.
+
+    WHAT'S GOING WELL (3-5 points):
+    The strongest reasons to consider this stock. Use plain language.
+
+    WHAT COULD GO WRONG (3-5 points):
+    Honest risks and concerns. Don't sugarcoat.
+
+    THE KEY NUMBERS:
+    Show concrete values (ratios/valuation/risk metrics) in compact lines, not long paragraphs.
+    Include source tags for factual claims where possible.
+
+    WHAT TO WATCH NEXT:
+    2-3 upcoming events or trends that could move the stock.
+
+    MY ADVICE:
+    2-3 short lines of straight talk, like you're texting a friend.
+    Example: "It's a great company but the stock is expensive right now. If you already own
+    it, hold on. If you're looking to buy, maybe wait for a dip."
+
+    IMPORTANT:
+    - No JSON, no tool traces, no generic boilerplate (e.g., "past performance is not indicative...").
+    - Keep it concise and evidence-first.
+
+    VERDICT: [STRONG BUY / BUY / HOLD / SELL / STRONG SELL] | Confidence: [High / Medium / Low]
+  agent: investment_advisor
+  context:
+    - analyze_valuation_ratios
+    - analyze_price_performance
+    - analyze_financial_health
+    - analyze_market_sentiment
+    - review_analysis

@@ -1,0 +1,22 @@
+[project]
+name = "stocksage"
+version = "0.1.0"
+description = "End-to-End Agentic Stock Analysis"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "crewai[tools]>=1.9.0",
+    "fastapi>=0.128.0",
+    "gnews>=0.4.3",
+    "jinja2>=3.1.6",
+    "jupyter>=1.1.1",
+    "litellm>=1.75.3",
+    "numpy>=2.4.1",
+    "pandas>=3.0.0",
+    "plotly>=6.5.2",
+    "python-dotenv>=1.1.1",
+    "pytrends>=4.9.2",
+    "urllib3<2",
+    "uvicorn>=0.40.0",
+    "yfinance>=1.1.0",
+]
