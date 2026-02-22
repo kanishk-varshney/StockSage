@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 
-DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+DATA_DIR = Path(__file__).resolve().parents[2] / ".market_data"
 
 
 def build_task_facts(symbol: str) -> dict[str, str]:

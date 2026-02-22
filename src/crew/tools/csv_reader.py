@@ -1,4 +1,4 @@
-"""CSV reader tool for loading stock data from the data/ directory."""
+"""CSV reader tool for loading stock data from the .market_data/ directory."""
 
 from pathlib import Path
 from typing import Any
@@ -7,7 +7,7 @@ import pandas as pd
 from crewai.tools import BaseTool
 
 
-DATA_DIR = Path(__file__).resolve().parents[3] / "data"
+DATA_DIR = Path(__file__).resolve().parents[3] / ".market_data"
 
 
 class CSVReaderTool(BaseTool):

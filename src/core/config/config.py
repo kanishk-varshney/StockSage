@@ -10,7 +10,7 @@ load_dotenv(_PROJECT_ROOT / ".env")
 
 # ── Data settings ──────────────────────────────────────────
 DEFAULT_PERIOD = "1y"
-DEFAULT_OUTPUT_DIR = "data"
+DEFAULT_OUTPUT_DIR = ".market_data"
 
 # ── LLM Configuration ─────────────────────────────────────
 # Uses LiteLLM model format: "provider/model-name"
