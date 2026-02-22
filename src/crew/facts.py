@@ -2,25 +2,31 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
-
-
-DATA_DIR = Path(__file__).resolve().parents[2] / ".market_data"
+from src.core.config.data_contracts import (
+    CSV_CASH_FLOW,
+    CSV_COMPANY_INFO,
+    CSV_HISTORICAL_PRICES,
+    CSV_INCOME_STATEMENT,
+    CSV_INSTITUTIONAL_HOLDERS,
+    CSV_MARKET_INDEX,
+    CSV_NEWS,
+    CSV_RECOMMENDATIONS,
+    DATA_DIR,
+)
 
 
 def build_task_facts(symbol: str) -> dict[str, str]:
     sym = symbol.upper()
-    company = _read_csv(sym, "company_info.csv")
-    prices = _read_csv(sym, "historical_prices.csv")
-    market = _read_csv(sym, "market_index.csv")
-    income = _read_csv(sym, "income_statement.csv")
-    cash = _read_csv(sym, "cash_flow.csv")
-    recs = _read_csv(sym, "recommendations.csv")
-    holders = _read_csv(sym, "institutional_holders.csv")
-    news = _read_csv(sym, "news.csv")
+    company = _read_csv(sym, CSV_COMPANY_INFO)
+    prices = _read_csv(sym, CSV_HISTORICAL_PRICES)
+    market = _read_csv(sym, CSV_MARKET_INDEX)
+    income = _read_csv(sym, CSV_INCOME_STATEMENT)
+    cash = _read_csv(sym, CSV_CASH_FLOW)
+    recs = _read_csv(sym, CSV_RECOMMENDATIONS)
+    holders = _read_csv(sym, CSV_INSTITUTIONAL_HOLDERS)
+    news = _read_csv(sym, CSV_NEWS)
 
     company_row = company.iloc[0] if company is not None and not company.empty else pd.Series(dtype=object)
 

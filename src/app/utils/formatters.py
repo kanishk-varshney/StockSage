@@ -71,7 +71,6 @@ _VERDICT_INLINE_RE = re.compile(
 )
 _VERDICT_STANDALONE_RE = re.compile(r"^(Strong\s*BUY|Strong\s*SELL|BUY|HOLD|SELL)\s*$", re.MULTILINE | re.IGNORECASE)
 _CONFIDENCE_RE = re.compile(r"Confidence:\s*(High|Medium|Low)", re.IGNORECASE)
-_URL_RE = re.compile(r"https?://[^\s)]+", re.IGNORECASE)
 _REDUNDANT_LINE_RE = re.compile(
     r"(past performance|do your own research|not investment advice|consult (an )?advisor|"
     r"indicative of future results|consider your risk tolerance|i can now give|let me give you|here is my advice)",
@@ -176,39 +175,7 @@ def _is_low_value_line(line: str, symbol: str) -> bool:
     return looks_generic and not (has_evidence or mentions_symbol)
 
 
-def _source_chip(source: str) -> str:
-    return f'<span class="source-chip">source: {html.escape(source)}</span>'
-
-
-def _source_link_chip(url: str) -> str:
-    parsed = urlparse(url)
-    host = parsed.netloc.replace("www.", "") if parsed.netloc else "link"
-    return (
-        f'<a class="source-chip source-link-chip" href="{html.escape(url)}" '
-        f'target="_blank" rel="noopener noreferrer">source: {html.escape(host)}</a>'
-    )
-
-
-def _infer_source(text: str) -> str:
-    t = text.lower()
-    if "analyst" in t or "recommendation" in t:
-        return "recommendations.csv"
-    if "holder" in t or "insider" in t:
-        return "institutional_holders.csv"
-    if "news" in t or "headline" in t:
-        return "news/serper"
-    if any(k in t for k in ("pe", "beta", "market cap", "dividend", "forward", "current price")):
-        return "company_info.csv"
-    if any(k in t for k in ("revenue", "operating", "net income", "margin")):
-        return "income_statement.csv"
-    if any(k in t for k in ("debt", "equity", "current ratio", "assets", "liabilities")):
-        return "balance_sheet.csv"
-    if "cash flow" in t:
-        return "cash_flow.csv"
-    return "analysis"
-
-
-def _metric_row(label: str, value: str, note: str = "", source: str | None = None) -> str:
+def _metric_row(label: str, value: str, note: str = "") -> str:
     lower = f"{label} {value} {note}".lower()
     sentiment = "metric-neutral"
     if "sentiment signal" in label.lower():
@@ -243,7 +210,7 @@ def _metric_row(label: str, value: str, note: str = "", source: str | None = Non
     return row
 
 
-def _parse_metric_line(line: str) -> tuple[str, str, str, str | None] | None:
+def _parse_metric_line(line: str) -> tuple[str, str, str] | None:
     metric = _METRIC_LINE_RE.match(line)
     if not metric:
         return None
@@ -267,31 +234,7 @@ def _parse_metric_line(line: str) -> tuple[str, str, str, str | None] | None:
 
     value = _clean_note_text(value)
     note = _clean_note_text(note)
-    return label, value, note, source
-
-
-def _extract_news_links(text: str) -> list[str]:
-    unique: list[str] = []
-    for url in _URL_RE.findall(text):
-        if url not in unique:
-            unique.append(url)
-    return unique[:6]
-
-
-def _render_news_links(links: list[str]) -> str:
-    if not links:
-        return ""
-    items = []
-    for url in links:
-        parsed = urlparse(url)
-        host = parsed.netloc.replace("www.", "") if parsed.netloc else "news link"
-        items.append(
-            f'<a class="news-link" href="{html.escape(url)}" target="_blank" rel="noopener noreferrer">{html.escape(host)}</a>'
-        )
-    return (
-        '<div class="section-divider">Sentiment &amp; News - Related News</div>'
-        '<div class="news-links">' + "".join(items) + "</div>"
-    )
+    return label, value, note
 
 
 def _render_news_from_lines(lines: list[str]) -> str:
@@ -556,12 +499,12 @@ def _format_analysis_body(raw_text: str, symbol: str) -> str:
                 continue
             parsed = _parse_metric_line(line)
             if parsed:
-                label, value, note, source = parsed
+                label, value, note = parsed
                 normalized = label.lower().strip()
                 if normalized in metric_seen:
                     continue
                 metric_seen.add(normalized)
-                metrics.append(_metric_row(label, value, note, source))
+                metrics.append(_metric_row(label, value, note))
             else:
                 misc.append(line)
 
@@ -587,12 +530,12 @@ def _format_analysis_body(raw_text: str, symbol: str) -> str:
         for line in payload:
             parsed = _parse_metric_line(line)
             if parsed:
-                label, value, note, source = parsed
+                label, value, note = parsed
                 normalized = label.lower().strip()
                 if normalized in metric_seen:
                     continue
                 metric_seen.add(normalized)
-                metrics.append(_metric_row(label, value, note, source))
+                metrics.append(_metric_row(label, value, note))
             else:
                 misc.append(line)
         if metrics or misc:

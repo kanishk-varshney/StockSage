@@ -1,13 +1,32 @@
 """CSV reader tool for loading stock data from the .market_data/ directory."""
 
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
 from crewai.tools import BaseTool
 
-
-DATA_DIR = Path(__file__).resolve().parents[3] / ".market_data"
+from src.core.config.data_contracts import (
+    CSV_BALANCE_SHEET,
+    CSV_CASH_FLOW,
+    CSV_COMPANY_INFO,
+    CSV_DAILY_PRICES,
+    CSV_DIVIDENDS,
+    CSV_EARNINGS_DATES,
+    CSV_HISTORICAL_PRICES,
+    CSV_INCOME_STATEMENT,
+    CSV_INSIDER_TRANSACTIONS,
+    CSV_INSTITUTIONAL_HOLDERS,
+    CSV_MAJOR_HOLDERS,
+    CSV_MARKET_INDEX,
+    CSV_NEWS,
+    CSV_QUARTERLY_BALANCE_SHEET,
+    CSV_QUARTERLY_CASH_FLOW,
+    CSV_QUARTERLY_INCOME_STATEMENT,
+    CSV_RECOMMENDATIONS,
+    CSV_SECTOR_INDEX,
+    CSV_SPLITS,
+    DATA_DIR,
+)
 
 
 class CSVReaderTool(BaseTool):
@@ -16,15 +35,15 @@ class CSVReaderTool(BaseTool):
     name: str = "csv_reader"
     description: str = (
         "Reads a CSV data file for a stock symbol. "
-        "Parameters: symbol (e.g. 'AAPL'), file_name (e.g. 'income_statement.csv'). "
-        "Available files: company_info.csv, historical_prices.csv, daily.csv, "
-        "income_statement.csv, quarterly_income_statement.csv, "
-        "balance_sheet.csv, quarterly_balance_sheet.csv, "
-        "cash_flow.csv, quarterly_cash_flow.csv, "
-        "recommendations.csv, insider_transactions.csv, "
-        "institutional_holders.csv, major_holders.csv, "
-        "dividends.csv, splits.csv, earnings_dates.csv, "
-        "news.csv, market_index.csv, sector_index.csv"
+        f"Parameters: symbol (e.g. 'AAPL'), file_name (e.g. '{CSV_INCOME_STATEMENT}'). "
+        f"Available files: {CSV_COMPANY_INFO}, {CSV_HISTORICAL_PRICES}, {CSV_DAILY_PRICES}, "
+        f"{CSV_INCOME_STATEMENT}, {CSV_QUARTERLY_INCOME_STATEMENT}, "
+        f"{CSV_BALANCE_SHEET}, {CSV_QUARTERLY_BALANCE_SHEET}, "
+        f"{CSV_CASH_FLOW}, {CSV_QUARTERLY_CASH_FLOW}, "
+        f"{CSV_RECOMMENDATIONS}, {CSV_INSIDER_TRANSACTIONS}, "
+        f"{CSV_INSTITUTIONAL_HOLDERS}, {CSV_MAJOR_HOLDERS}, "
+        f"{CSV_DIVIDENDS}, {CSV_SPLITS}, {CSV_EARNINGS_DATES}, "
+        f"{CSV_NEWS}, {CSV_MARKET_INDEX}, {CSV_SECTOR_INDEX}"
     )
 
     def _run(self, symbol: str, file_name: str) -> str:

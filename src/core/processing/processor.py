@@ -44,7 +44,6 @@ class StockProcessor:
         if stock_data is None or not stock_data.is_valid():
             return False
 
-        self.stock_data = stock_data
         return True
 
     def _analyze(self) -> Generator[LogEntry, None, bool]:

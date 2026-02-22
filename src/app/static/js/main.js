@@ -97,7 +97,7 @@ function updateGlobalVerdictBadge() {
     badge.style.display = 'inline-flex';
 }
 
-async function startProcessing(event) {
+function startProcessing(event) {
     event.preventDefault();
     const symbol = document.getElementById('symbol').value;
     const logsDiv = document.getElementById('logs');

@@ -60,11 +60,13 @@ class AnalysisPipeline:
                 try:
                     result = crew_instance.crew().kickoff(inputs={"symbol": self.symbol})
                     break
-                except Exception as exc:
+                except (ValueError, TypeError, RuntimeError) as exc:
                     if attempt < max_attempts and should_retry_structured_error(exc):
                         # Retry silently to avoid exposing parser noise in end-user UI.
                         time.sleep(STRUCTURED_OUTPUT_POLICY.retry_backoff_seconds * attempt)
                         continue
+                    raise
+                except Exception:
                     raise
 
             if result is None:

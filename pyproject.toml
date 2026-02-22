@@ -20,3 +20,12 @@ dependencies = [
     "uvicorn>=0.40.0",
     "yfinance>=1.1.0",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

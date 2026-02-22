@@ -124,6 +124,8 @@ class DownloadPipeline:
         try:
             saved_files = CSVStorage().save(self.stock_data)
             yield self._log(SubStage.SAVING_DATA, StatusType.SUCCESS, f"{len(saved_files)} files saved to .market_data/{self.symbol}/")
+        except (OSError, ValueError, TypeError) as exc:
+            yield self._log(SubStage.SAVING_DATA, StatusType.FAILED, f"Save failed: {exc}")
         except Exception as exc:
             yield self._log(SubStage.SAVING_DATA, StatusType.FAILED, f"Save failed: {exc}")
 

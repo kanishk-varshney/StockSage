@@ -317,11 +317,6 @@ button:disabled {
     padding: 2rem;
 }
 
-.htmx-indicator {
-    margin-left: 1rem;
-    color: #a78bfa;
-}
-
 /* ── Analysis blocks ────────────────────────────────────── */
 
 .log-analyzing {
@@ -602,25 +597,6 @@ button:disabled {
     margin: 0.1rem 0 0.35rem 0.75rem;
 }
 
-.source-chip {
-    display: inline-block;
-    font-size: 0.7rem;
-    color: #6b7280;
-    background: #eef2ff;
-    border: 1px solid #dbeafe;
-    border-radius: 999px;
-    padding: 0.12rem 0.45rem;
-}
-
-.source-link-chip {
-    color: #5b21b6;
-    text-decoration: none;
-}
-
-.source-link-chip:hover {
-    background: #e0e7ff;
-}
-
 .summary-item {
     position: relative;
     padding: 0.18rem 0 0.18rem 0.9rem;
@@ -691,13 +667,6 @@ button:disabled {
     margin-left: 0.35rem;
 }
 
-.news-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-    margin-top: 0.35rem;
-}
-
 .news-list {
     display: grid;
     grid-template-columns: 1fr;
@@ -738,22 +707,6 @@ button:disabled {
     color: #6b7280;
     margin: 0.25rem 0 0.35rem;
     overflow-wrap: anywhere;
-}
-
-.news-link {
-    display: inline-block;
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: #6d28d9;
-    background: #ede9fe;
-    padding: 0.22rem 0.55rem;
-    border-radius: 999px;
-    text-decoration: none;
-    border: 1px solid #ddd6fe;
-}
-
-.news-link:hover {
-    background: #ddd6fe;
 }
 
 /* ── Signal color coding (pastel) ────────────────────────── */
@@ -990,31 +943,3 @@ button:disabled {
     word-break: break-word;
 }
 
-/* ── Insights panel ──────────────────────────────────────── */
-
-#insights-panel {
-    margin-top: 2rem;
-    padding: 1.5rem;
-    background: #ffffff;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.06);
-    display: none;
-}
-
-#insights-panel.visible {
-    display: block;
-    animation: fadeIn 0.5s ease-in;
-}
-
-#insights-panel h3 {
-    color: #5b21b6;
-    margin-bottom: 1rem;
-    font-size: 1.05rem;
-    font-weight: 700;
-}
-
-#plots-area {
-    margin-top: 1rem;
-    min-height: 40px;
-}
