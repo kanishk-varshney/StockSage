@@ -4,6 +4,7 @@ from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 
 from src.core.config.llm import get_llm
+from src.crew.structured_output import output_model_for_task
 from src.crew.tools.calculator import FinancialCalculatorTool
 from src.crew.tools.csv_reader import CSVReaderTool
 from src.crew.tools.search import create_search_tool
@@ -82,27 +83,45 @@ class StockAnalysisCrew:
 
     @task
     def analyze_valuation_ratios(self) -> Task:
-        return Task(config=self.tasks_config["analyze_valuation_ratios"])
+        return Task(
+            config=self.tasks_config["analyze_valuation_ratios"],
+            output_pydantic=output_model_for_task("analyze_valuation_ratios"),
+        )
 
     @task
     def analyze_price_performance(self) -> Task:
-        return Task(config=self.tasks_config["analyze_price_performance"])
+        return Task(
+            config=self.tasks_config["analyze_price_performance"],
+            output_pydantic=output_model_for_task("analyze_price_performance"),
+        )
 
     @task
     def analyze_financial_health(self) -> Task:
-        return Task(config=self.tasks_config["analyze_financial_health"])
+        return Task(
+            config=self.tasks_config["analyze_financial_health"],
+            output_pydantic=output_model_for_task("analyze_financial_health"),
+        )
 
     @task
     def analyze_market_sentiment(self) -> Task:
-        return Task(config=self.tasks_config["analyze_market_sentiment"])
+        return Task(
+            config=self.tasks_config["analyze_market_sentiment"],
+            output_pydantic=output_model_for_task("analyze_market_sentiment"),
+        )
 
     @task
     def review_analysis(self) -> Task:
-        return Task(config=self.tasks_config["review_analysis"])
+        return Task(
+            config=self.tasks_config["review_analysis"],
+            output_pydantic=output_model_for_task("review_analysis"),
+        )
 
     @task
     def generate_investment_report(self) -> Task:
-        return Task(config=self.tasks_config["generate_investment_report"])
+        return Task(
+            config=self.tasks_config["generate_investment_report"],
+            output_pydantic=output_model_for_task("generate_investment_report"),
+        )
 
     # ── Crew ────────────────────────────────────────────────
 

@@ -30,7 +30,8 @@ analyze_valuation_ratios:
        the stock appears undervalued, fairly valued, or overvalued by each method.
 
     IMPORTANT:
-    - Write ONLY human-readable analysis. Never include JSON, raw data, or tool outputs.
+    - Return ONLY a valid JSON object that matches the configured Pydantic schema for this task.
+    - Do not wrap JSON in markdown/code fences.
     - Use concise evidence-first lines; avoid generic boilerplate/disclaimers.
     - Add source tags for factual claims where possible (e.g., [source: company_info.csv]).
   expected_output: >
@@ -73,7 +74,8 @@ analyze_price_performance:
     6. Explain each metric as if talking to someone who just started investing.
 
     IMPORTANT:
-    - Write ONLY human-readable analysis. Never include JSON, raw data, or tool outputs.
+    - Return ONLY a valid JSON object that matches the configured Pydantic schema for this task.
+    - Do not wrap JSON in markdown/code fences.
     - Keep to concise lines with evidence/value references; avoid generic disclaimers.
     - Add source tags where practical (e.g., [source: historical_prices.csv], [source: market_index.csv]).
   expected_output: >
@@ -112,7 +114,8 @@ analyze_financial_health:
        too much debt? Generating real cash?
 
     IMPORTANT:
-    - Write ONLY human-readable analysis. Never include JSON, raw data, or tool outputs.
+    - Return ONLY a valid JSON object that matches the configured Pydantic schema for this task.
+    - Do not wrap JSON in markdown/code fences.
     - Keep concise and avoid generic disclaimer language.
     - Add source tags for factual claims where possible.
   expected_output: >
@@ -152,7 +155,9 @@ analyze_market_sentiment:
     7. Use the csv_reader tool to read news.csv — review saved news headlines.
     8. Label every finding as [POSITIVE], [NEGATIVE], or [NEUTRAL] and explain why.
 
-    IMPORTANT: Write ONLY human-readable analysis. Never include JSON, raw data, or tool outputs.
+    IMPORTANT:
+    - Return ONLY a valid JSON object that matches the configured Pydantic schema for this task.
+    - Do not wrap JSON in markdown/code fences.
   expected_output: >
     A structured sentiment analysis with citations:
 
@@ -193,7 +198,9 @@ review_analysis:
     Be concise. Only flag things that genuinely matter. If the analysis is solid, confirm
     the key findings briefly and move on.
 
-    IMPORTANT: Write ONLY human-readable notes. Never include JSON, raw data, or tool outputs.
+    IMPORTANT:
+    - Return ONLY a valid JSON object that matches the configured Pydantic schema for this task.
+    - Do not wrap JSON in markdown/code fences.
   expected_output: >
     A brief QA review with:
 
@@ -221,7 +228,9 @@ generate_investment_report:
     Write as if you're advising a friend who asked "should I buy this stock?" Be direct.
     Use the analysts' numbers but explain them simply. Mention the reviewer's flags if relevant.
 
-    IMPORTANT: Write ONLY human-readable analysis. Never include JSON, raw data, or tool outputs.
+    IMPORTANT:
+    - Return ONLY a valid JSON object that matches the configured Pydantic schema for this task.
+    - Do not wrap JSON in markdown/code fences.
     You MUST end your response with a VERDICT line in exactly this format:
     VERDICT: [STRONG BUY / BUY / HOLD / SELL / STRONG SELL] | Confidence: [High / Medium / Low]
   expected_output: >
@@ -255,7 +264,9 @@ generate_investment_report:
     it, hold on. If you're looking to buy, maybe wait for a dip."
 
     IMPORTANT:
-    - No JSON, no tool traces, no generic boilerplate (e.g., "past performance is not indicative...").
+    - Return ONLY a valid JSON object that matches the configured Pydantic schema for this task.
+    - Do not wrap JSON in markdown/code fences.
+    - No tool traces, no generic boilerplate (e.g., "past performance is not indicative...").
     - Keep it concise and evidence-first.
 
     VERDICT: [STRONG BUY / BUY / HOLD / SELL / STRONG SELL] | Confidence: [High / Medium / Low]
