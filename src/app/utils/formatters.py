@@ -22,7 +22,7 @@ _ANALYSIS_TITLES = {
     "analyzing_financial_health": "Financial Health",
     "analyzing_market_sentiment": "Market Sentiment",
     "reviewing_analysis": "Quality Review",
-    "generating_investment_report": "Investment Report",
+    "generating_investment_report": "Final Analysis",
 }
 
 _ANALYSIS_ICONS = {
@@ -93,12 +93,24 @@ _GROUP_BY_LABEL = {
 _SECTION_ORDER = [
     "COMPANY BASICS",
     "FINANCIAL SNAPSHOT",
+    "VALUATION SUMMARY",
     "PERFORMANCE & RISK",
     "SENTIMENT & ANALYST SUMMARY",
-    "RECOMMENDATION",
     "RELATED NEWS",
     "MARKET PULSE",
+    "RECOMMENDATION",
 ]
+
+_SECTION_LABELS = {
+    "COMPANY BASICS": "Company Profile",
+    "FINANCIAL SNAPSHOT": "Financial Summary",
+    "VALUATION SUMMARY": "Valuation",
+    "PERFORMANCE & RISK": "Performance & Risk",
+    "SENTIMENT & ANALYST SUMMARY": "Sentiment & News",
+    "RELATED NEWS": "Sentiment & News - Related News",
+    "MARKET PULSE": "Sentiment & News - Market Pulse",
+    "RECOMMENDATION": "Final Recommendation",
+}
 
 
 def _is_analysis_entry(log_entry: LogEntry) -> bool:
@@ -141,6 +153,14 @@ def _clean_line(line: str) -> str:
     return re.sub(r"\s+", " ", line).strip()
 
 
+def _clean_note_text(text: str) -> str:
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    cleaned = re.sub(r"^[\[\]\s]+", "", cleaned)
+    cleaned = re.sub(r"[\[\]\s]+$", "", cleaned)
+    cleaned = re.sub(r"\s+\.\s*$", ".", cleaned)
+    return cleaned
+
+
 def _is_low_value_line(line: str, symbol: str) -> bool:
     """Rule-based quality gate for dropping filler lines."""
     lower = line.lower()
@@ -148,18 +168,12 @@ def _is_low_value_line(line: str, symbol: str) -> bool:
         return True
     if len(line) < 3:
         return True
+    if re.fullmatch(r"[\[\](){}.,;:\-]+", line):
+        return True
     has_evidence = bool(_EVIDENCE_TOKENS_RE.search(line))
     mentions_symbol = bool(symbol) and symbol.lower() in lower
     looks_generic = lower.startswith(("remember ", "ultimately ", "in general ", "overall, it is important"))
     return looks_generic and not (has_evidence or mentions_symbol)
-
-
-def _truncate_line(line: str, max_len: int = 160) -> str:
-    if len(line) <= max_len:
-        return line
-    cut = line.rfind(" ", 0, max_len)
-    cut = cut if cut > 40 else max_len
-    return line[:cut].rstrip() + "…"
 
 
 def _source_chip(source: str) -> str:
@@ -209,12 +223,23 @@ def _metric_row(label: str, value: str, note: str = "", source: str | None = Non
     elif any(w in lower for w in ("healthy", "strong", "good", "improved", "undervalued", "growth")):
         sentiment = "metric-positive"
 
+    safe_note = _clean_note_text(note)
+    tooltip = ""
+    if safe_note:
+        tooltip = (
+            f'<span class="metric-info-wrapper" tabindex="0" role="button" '
+            f'aria-label="More detail for {html.escape(label, quote=True)}" '
+            f'data-tooltip="{html.escape(safe_note, quote=True)}">'
+            '<span class="metric-info">i</span>'
+            "</span>"
+        )
+
     row = (
-        f'<div class="metric-tile"><span class="metric-label">{html.escape(label)}</span>'
-        f'<span class="metric-value {sentiment}">{html.escape(value)}</span></div>'
+        '<div class="metric-tile">'
+        f'<span class="metric-label-wrap"><span class="metric-label">{html.escape(label)}</span>{tooltip}</span>'
+        f'<span class="metric-value {sentiment}">{html.escape(value)}</span>'
+        "</div>"
     )
-    if note:
-        row += f'<div class="metric-explanation">{_highlight_signals(html.escape(_truncate_line(note, 110)))}</div>'
     return row
 
 
@@ -240,6 +265,8 @@ def _parse_metric_line(line: str) -> tuple[str, str, str, str | None] | None:
             note = right.strip()
             break
 
+    value = _clean_note_text(value)
+    note = _clean_note_text(note)
     return label, value, note, source
 
 
@@ -262,7 +289,7 @@ def _render_news_links(links: list[str]) -> str:
             f'<a class="news-link" href="{html.escape(url)}" target="_blank" rel="noopener noreferrer">{html.escape(host)}</a>'
         )
     return (
-        '<div class="section-divider">RELATED NEWS</div>'
+        '<div class="section-divider">Sentiment &amp; News - Related News</div>'
         '<div class="news-links">' + "".join(items) + "</div>"
     )
 
@@ -284,7 +311,7 @@ def _render_news_from_lines(lines: list[str]) -> str:
             if url.startswith("http"):
                 cards.append(
                     f'<a class="news-item" href="{html.escape(url)}" target="_blank" rel="noopener noreferrer">'
-                    f'<span class="news-title">{html.escape(_truncate_line(title, 90))}</span>'
+                    f'<span class="news-title" title="{html.escape(title)}">{html.escape(title)}</span>'
                     f'<span class="news-meta">{html.escape(publisher)}</span>'
                     "</a>"
                 )
@@ -298,10 +325,10 @@ def _render_news_from_lines(lines: list[str]) -> str:
             )
 
     if not cards and not status_line:
-        return '<div class="section-divider">RELATED NEWS</div><div class="summary-item">No recent news available.</div>'
+        return '<div class="section-divider">Sentiment &amp; News - Related News</div><div class="summary-item">No recent news available.</div>'
 
     status_html = f'<div class="news-status">{html.escape(status_line)}</div>' if status_line else ""
-    return '<div class="section-divider">RELATED NEWS</div>' + status_html + '<div class="news-list">' + "".join(cards) + "</div>"
+    return '<div class="section-divider">Sentiment &amp; News - Related News</div>' + status_html + '<div class="news-list">' + "".join(cards) + "</div>"
 
 
 def _render_market_pulse(lines: list[str]) -> str:
@@ -316,7 +343,14 @@ def _render_market_pulse(lines: list[str]) -> str:
     chips_html = ""
     if screener:
         parts = [p.strip() for p in screener.split("|") if p.strip()]
-        chips_html = '<div class="pulse-chips">' + "".join(f'<span class="pulse-chip">{html.escape(p)}</span>' for p in parts[:4]) + "</div>"
+        normalized_parts = []
+        for p in parts[:4]:
+            if "=" in p:
+                left, right = p.split("=", 1)
+                normalized_parts.append(f"{left.strip()}: {right.strip()}")
+            else:
+                normalized_parts.append(p)
+        chips_html = '<div class="pulse-chips">' + "".join(f'<span class="pulse-chip">{html.escape(p)}</span>' for p in normalized_parts) + "</div>"
 
     ticker_html = ""
     if ticker_tape:
@@ -325,7 +359,13 @@ def _render_market_pulse(lines: list[str]) -> str:
 
     if not chips_html and not ticker_html:
         return ""
-    return '<div class="section-divider">MARKET PULSE</div>' + chips_html + ticker_html
+    context = (
+        '<div class="section-insight">'
+        'Market Pulse is a quick context snapshot from screener and ticker tape data. '
+        'Use these tags as directional signals, not standalone recommendations.'
+        "</div>"
+    )
+    return '<div class="section-divider">Sentiment &amp; News - Market Pulse</div>' + context + chips_html + ticker_html
 
 
 def _group_for_label(label: str) -> str:
@@ -337,7 +377,33 @@ def _group_for_label(label: str) -> str:
 
 
 def _read_more_line(line: str) -> str:
-    return f'<div class="summary-item">{_highlight_signals(html.escape(_truncate_line(line, 140)))}</div>'
+    cleaned = _clean_note_text(line)
+    if not cleaned:
+        return ""
+    return f'<div class="summary-item">{_highlight_signals(html.escape(cleaned))}</div>'
+
+
+def _render_misc_lines(lines: list[str]) -> str:
+    if not lines:
+        return ""
+
+    preview = lines[:2]
+    remaining = lines[2:]
+    content = "".join(_read_more_line(line) for line in preview)
+    if not remaining:
+        return content
+
+    detail_count = len(remaining)
+    details_html = "".join(_read_more_line(line) for line in remaining)
+    if not details_html:
+        return content
+    content += (
+        '<details class="summary-more">'
+        f'<summary>Detailed evidence<span class="read-more-chip">+{detail_count} more</span></summary>'
+        f'<div class="summary-more-content">{details_html}</div>'
+        "</details>"
+    )
+    return content
 
 
 def _render_company_basics(raw_text: str, symbol: str) -> str:
@@ -379,7 +445,7 @@ def _render_company_basics(raw_text: str, symbol: str) -> str:
         peers = [p.strip() for p in peers_match.group(1).split(",") if p.strip()][:5]
         peer_html = '<div class="basic-peers">' + "".join(f'<span class="peer-chip">{html.escape(p)}</span>' for p in peers) + "</div>"
 
-    return '<div class="section-divider">COMPANY BASICS</div><div class="company-basics">' + "".join(rows) + peer_html + "</div>"
+    return '<div class="section-divider">Company Profile</div><div class="company-basics">' + "".join(rows) + peer_html + "</div>"
 
 
 # ── Verdict extraction (flexible) ────────────────────────────
@@ -502,13 +568,14 @@ def _format_analysis_body(raw_text: str, symbol: str) -> str:
         if not metrics and not misc and not insight_line:
             continue
 
-        block = f'<div class="section-divider">{section_name}</div>'
+        display_name = _SECTION_LABELS.get(section_name, section_name.title())
+        block = f'<div class="section-divider">{display_name}</div>'
         if metrics:
             block += '<div class="metric-grid">' + "".join(metrics) + "</div>"
         if misc:
-            block += "".join(_read_more_line(x) for x in misc[:2])
+            block += _render_misc_lines(misc)
         if insight_line:
-            block += f'<div class="section-insight">{_highlight_signals(html.escape(_truncate_line(insight_line, 125)))}</div>'
+            block += f'<div class="section-insight">{_highlight_signals(html.escape(insight_line))}</div>'
         rendered_blocks.append(block)
 
     # Render any extra sections not in the fixed order.
@@ -529,15 +596,16 @@ def _format_analysis_body(raw_text: str, symbol: str) -> str:
             else:
                 misc.append(line)
         if metrics or misc:
-            block = f'<div class="section-divider">{html.escape(section_name)}</div>'
+            display_name = _SECTION_LABELS.get(section_name, section_name.title())
+            block = f'<div class="section-divider">{html.escape(display_name)}</div>'
             if metrics:
                 block += '<div class="metric-grid">' + "".join(metrics) + "</div>"
             if misc:
-                block += "".join(_read_more_line(x) for x in misc[:2])
+                block += _render_misc_lines(misc)
             rendered_blocks.append(block)
 
     if not rendered_blocks:
-        return '<div class="summary-item">No structured metrics found for this block.</div>'
+        return '<div class="summary-item">No detailed data available for this section.</div>'
     return "".join(rendered_blocks)
 
 
@@ -559,7 +627,7 @@ def _format_analysis_block(log_entry: LogEntry) -> str:
 
     parts = [
         f'<div class="log-entry log-analysis">',
-        f'<div class="log-analysis-header">{icon} {title}{badge}{symbol_chip}</div>',
+        f'<div class="log-analysis-header"><span class="analysis-title">{icon} {title}</span>{badge}{symbol_chip}</div>',
         f'<div class="log-analysis-body">{body_html}</div>',
     ]
 
@@ -578,22 +646,24 @@ def format_log_entry(log_entry: LogEntry) -> str:
         display_text = log_entry.message or log_entry.stage.display_name
         if log_entry.status_type == StatusType.FAILED:
             return f'<div class="log-entry log-stage log-failed">{html.escape(display_text)}</div>'
+        if log_entry.status_type == StatusType.IN_PROGRESS:
+            return f'<div class="log-entry log-stage log-stage-progress">{html.escape(display_text)}</div>'
         return f'<div class="log-entry log-stage">{html.escape(display_text)}</div>'
 
     if _is_analysis_entry(log_entry):
         if log_entry.status_type == StatusType.IN_PROGRESS:
             title = _ANALYSIS_TITLES.get(log_entry.substage.value, html.escape(log_entry.substage.display_name))
             icon = _ANALYSIS_ICONS.get(log_entry.substage.value, "&#x2728;")
-            return f'<div class="log-entry log-substage log-analyzing">  &boxur; {icon} {title}...</div>'
+            return f'<div class="log-entry log-substage log-analyzing log-progress-item">  &rarr; {icon} {title}...</div>'
         if log_entry.status_type == StatusType.SUCCESS:
             return _format_analysis_block(log_entry)
         if log_entry.status_type == StatusType.FAILED:
             title = _ANALYSIS_TITLES.get(log_entry.substage.value, html.escape(log_entry.substage.display_name))
             msg = html.escape(log_entry.message or "failed")
-            return f'<div class="log-entry log-substage log-failed">  &boxur; {title} &mdash; {msg}</div>'
+            return f'<div class="log-entry log-substage log-failed">  &rarr; {title} &mdash; {msg}</div>'
 
     if log_entry.status_type == StatusType.IN_PROGRESS:
-        return f'<div class="log-entry log-substage">  &boxur; {html.escape(log_entry.substage.display_name)}...</div>'
+        return f'<div class="log-entry log-substage log-progress-item">  &rarr; {html.escape(log_entry.substage.display_name)}...</div>'
 
     substage_name = html.escape(log_entry.substage.display_name)
     status_message = html.escape(log_entry.message or log_entry.status_type.display_message)
@@ -605,4 +675,4 @@ def format_log_entry(log_entry: LogEntry) -> str:
     else:
         status_class = "log-complete"
 
-    return f'<div class="log-entry log-substage {status_class}">  &boxur; {substage_name} ({status_message})</div>'
+    return f'<div class="log-entry log-substage {status_class}">  &rarr; {substage_name} ({status_message})</div>'

@@ -17,7 +17,7 @@
             <div class="form-group">
                 <label for="symbol">
                     Stock Symbol
-                    <span class="help-icon-wrapper" data-tooltip="US: 1-5 letters (e.g., AAPL) | Indian: SYMBOL.NS or SYMBOL.BO (e.g., RELIANCE.NS)">
+                    <span class="help-icon-wrapper" tabindex="0" role="button" aria-label="Symbol format help" data-tooltip="US stocks: 1-5 letters (AAPL). Indian stocks: add .NS or .BO (RELIANCE.NS).">
                         <i class="fas fa-info-circle help-icon"></i>
                     </span>
                 </label>
@@ -30,20 +30,22 @@
                     autofocus
                 >
             </div>
-            <button type="submit">Process Symbol</button>
-            <span id="spinner" style="display: none; margin-left: 1rem; color: #a78bfa;">Processing...</span>
+            <button type="submit">Analyze Stock</button>
+            <span id="spinner" style="display: none; margin-left: 1rem; color: #a78bfa;">Analyzing...</span>
         </form>
 
+        <div id="global-verdict-badge" class="global-verdict-badge" style="display:none;" aria-live="polite"></div>
+
         <div class="logs-container">
-            <h3>Processing Logs</h3>
+            <h3>Analysis Workspace</h3>
             <div id="progress-wrapper" style="display:none;">
                 <div id="progress-bar">
                     <div id="progress-fill"></div>
                 </div>
                 <div id="progress-label"></div>
             </div>
-            <div id="logs">
-                <div class="empty-state">No logs yet. Enter a symbol above to start processing.</div>
+            <div id="logs" aria-live="polite">
+                <div class="empty-state">Enter a stock symbol above to view your analysis.</div>
             </div>
         </div>
 

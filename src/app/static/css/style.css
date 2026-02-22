@@ -13,7 +13,7 @@ body {
 }
 
 .container {
-    max-width: 800px;
+    max-width: 1080px;
     margin: 0 auto;
     background: #ffffff;
     border-radius: 16px;
@@ -76,7 +76,9 @@ label {
     color: #ffffff;
     font-size: 0.75rem;
     line-height: 1.4;
-    white-space: nowrap;
+    white-space: normal;
+    width: max-content;
+    max-width: 280px;
     border-radius: 6px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     z-index: 1000;
@@ -88,7 +90,8 @@ label {
     transition: opacity 0.2s, visibility 0.2s;
 }
 
-.help-icon-wrapper:hover::after {
+.help-icon-wrapper:hover::after,
+.help-icon-wrapper:focus-within::after {
     opacity: 1;
     visibility: visible;
 }
@@ -108,7 +111,8 @@ label {
     transition: opacity 0.2s, visibility 0.2s;
 }
 
-.help-icon-wrapper:hover::before {
+.help-icon-wrapper:hover::before,
+.help-icon-wrapper:focus-within::before {
     opacity: 1;
     visibility: visible;
 }
@@ -173,6 +177,40 @@ button:disabled {
     font-weight: 600;
 }
 
+.global-verdict-badge {
+    position: sticky;
+    top: 1rem;
+    z-index: 20;
+    margin-top: 1rem;
+    margin-left: auto;
+    width: fit-content;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    padding: 0.32rem 0.7rem;
+    background: #ede9fe;
+    color: #5b21b6;
+}
+
+.global-verdict-badge.verdict-buy {
+    background: #d1fae5;
+    color: #065f46;
+    border-color: #6ee7b7;
+}
+
+.global-verdict-badge.verdict-hold {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fcd34d;
+}
+
+.global-verdict-badge.verdict-sell {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #fca5a5;
+}
+
 /* ── Progress bar ────────────────────────────────────────── */
 
 #progress-wrapper {
@@ -196,15 +234,17 @@ button:disabled {
 }
 
 #progress-label {
-    font-size: 0.7rem;
+    font-size: 0.88rem;
     color: #8b5cf6;
     margin-top: 0.35rem;
     font-weight: 500;
-    text-align: right;
+    text-align: left;
 }
 
 #logs {
     color: #4a5568;
+    display: grid;
+    gap: 0.75rem;
 }
 
 .log-entry {
@@ -236,6 +276,11 @@ button:disabled {
     color: #4a5568;
     padding-left: 1.5rem;
     font-size: 0.85rem;
+}
+
+.log-progress-item,
+.log-stage-progress {
+    display: none;
 }
 
 .log-substage::before {
@@ -293,6 +338,7 @@ button:disabled {
     animation: fadeIn 0.4s ease-in;
     box-shadow: 0 2px 8px rgba(124, 58, 237, 0.08);
     overflow: hidden;
+    min-width: 0;
 }
 
 .log-analysis-header {
@@ -306,18 +352,27 @@ button:disabled {
     font-size: 0.92rem;
     color: #5b21b6;
     flex-wrap: wrap;
+    min-width: 0;
+}
+
+.analysis-title {
+    flex: 1 1 260px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .log-analysis-body {
     padding: 0.9rem 1.2rem;
     background: #faf9ff;
     border-left: 4px solid #c4b5fd;
-    font-size: 0.84rem;
+    font-size: 0.88rem;
     line-height: 1.7;
     color: #374151;
     max-height: none;
     overflow-y: visible;
-    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .log-analysis-body p {
@@ -357,6 +412,8 @@ button:disabled {
     letter-spacing: 0.03em;
     text-transform: uppercase;
     margin-left: auto;
+    max-width: 100%;
+    overflow-wrap: anywhere;
 }
 
 .symbol-chip {
@@ -368,6 +425,8 @@ button:disabled {
     font-size: 0.66rem;
     font-weight: 700;
     letter-spacing: 0.03em;
+    overflow-wrap: anywhere;
+    max-width: 100%;
 }
 
 .badge-positive {
@@ -389,10 +448,10 @@ button:disabled {
 
 .section-divider {
     font-weight: 700;
-    font-size: 0.78rem;
+    font-size: 0.83rem;
     color: #5b21b6;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    text-transform: none;
+    letter-spacing: 0.02em;
     margin: 1.1rem 0 0.5rem 0;
     padding: 0.4rem 0.75rem;
     background: linear-gradient(90deg, #ede9fe 0%, #f5f3ff 80%, transparent 100%);
@@ -426,7 +485,7 @@ button:disabled {
 
 .metric-tile {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 0.45rem;
     padding: 0.55rem 0.75rem;
@@ -437,16 +496,79 @@ button:disabled {
 
 .metric-label {
     font-weight: 600;
-    font-size: 0.82rem;
+    font-size: 0.84rem;
     color: #4a4068;
+    padding-right: 0.5rem;
+    flex: 1;
+}
+
+.metric-label-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.metric-info-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 999px;
+    background: #efeafe;
+    border: 1px solid #d8ccfb;
+    color: #6d28d9;
+    cursor: help;
+    flex: 0 0 auto;
+}
+
+.metric-info {
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.metric-info-wrapper::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 360px;
+    padding: 0.5rem 0.6rem;
+    border-radius: 6px;
+    background: #2d3748;
+    color: #ffffff;
+    font-size: 0.74rem;
+    line-height: 1.35;
+    text-align: left;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    z-index: 25;
+    white-space: normal;
+}
+
+.metric-info-wrapper:hover::after,
+.metric-info-wrapper:focus-within::after {
+    opacity: 1;
+    visibility: visible;
 }
 
 .metric-value {
     font-weight: 700;
-    font-size: 0.82rem;
+    font-size: 0.84rem;
     padding: 0.15rem 0.55rem;
     border-radius: 6px;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: right;
+    max-width: 55%;
 }
 
 .metric-positive {
@@ -464,14 +586,6 @@ button:disabled {
     color: #5b21b6;
 }
 
-.metric-explanation {
-    font-size: 0.78rem;
-    color: #6b7280;
-    padding: 0.15rem 0.75rem 0.4rem;
-    line-height: 1.5;
-    font-style: italic;
-}
-
 .section-insight {
     margin-top: 0.35rem;
     padding: 0.45rem 0.6rem;
@@ -480,6 +594,8 @@ button:disabled {
     color: #4b5563;
     font-size: 0.78rem;
     border-radius: 6px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .citation-wrap {
@@ -488,7 +604,7 @@ button:disabled {
 
 .source-chip {
     display: inline-block;
-    font-size: 0.64rem;
+    font-size: 0.7rem;
     color: #6b7280;
     background: #eef2ff;
     border: 1px solid #dbeafe;
@@ -509,7 +625,7 @@ button:disabled {
     position: relative;
     padding: 0.18rem 0 0.18rem 0.9rem;
     margin: 0.12rem 0;
-    font-size: 0.81rem;
+    font-size: 0.84rem;
     line-height: 1.45;
     color: #374151;
 }
@@ -562,6 +678,8 @@ button:disabled {
     border-radius: 6px;
     font-size: 0.8rem;
     color: #4b5563;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .read-more-chip {
@@ -604,19 +722,22 @@ button:disabled {
 
 .news-title {
     color: #4c1d95;
-    font-size: 0.78rem;
+    font-size: 0.82rem;
     font-weight: 600;
+    overflow-wrap: anywhere;
 }
 
 .news-meta {
     color: #6b7280;
     font-size: 0.69rem;
+    overflow-wrap: anywhere;
 }
 
 .news-status {
     font-size: 0.7rem;
     color: #6b7280;
     margin: 0.25rem 0 0.35rem;
+    overflow-wrap: anywhere;
 }
 
 .news-link {
@@ -706,7 +827,7 @@ button:disabled {
 
 .basic-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.45rem;
     justify-content: space-between;
     padding: 0.22rem 0.35rem;
@@ -721,13 +842,16 @@ button:disabled {
     font-size: 0.72rem;
     color: #6b7280;
     font-weight: 600;
+    flex: 1;
 }
 
 .basic-value {
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     color: #374151;
     font-weight: 700;
     margin-left: auto;
+    overflow-wrap: anywhere;
+    text-align: right;
 }
 
 .basic-peers {
@@ -754,6 +878,8 @@ button:disabled {
     background: linear-gradient(135deg, #f8f7ff 0%, #f0edff 100%);
     border-left: 4px solid #7c3aed;
     text-align: center;
+    border-radius: 0 0 10px 10px;
+    border-top: 1px solid #e9e5f5;
 }
 
 .gauge-title {
@@ -782,7 +908,7 @@ button:disabled {
     color: #6b7280;
     border: 1px solid #ddd6fe;
     border-radius: 999px;
-    background: #faf7ff;
+    background: #ffffff;
     padding: 0.25rem 0.35rem;
     line-height: 1.05rem;
 }
@@ -795,7 +921,10 @@ button:disabled {
 }
 
 .meter-step:not(.meter-step-active) {
-    opacity: 0.5;
+    opacity: 1;
+    color: #9ca3af;
+    border-color: #ebe7ff;
+    background: #fafafe;
 }
 
 .gauge-verdict {
@@ -843,19 +972,22 @@ button:disabled {
 
 .ticker-tape {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.4rem;
-    overflow-x: auto;
-    padding-bottom: 0.1rem;
+    overflow-x: visible;
+    padding-bottom: 0;
 }
 
 .ticker-item {
-    white-space: nowrap;
+    white-space: normal;
     font-size: 0.72rem;
     color: #374151;
     border: 1px solid #e9e5f5;
     background: #ffffff;
     border-radius: 999px;
     padding: 0.18rem 0.55rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 /* ── Insights panel ──────────────────────────────────────── */

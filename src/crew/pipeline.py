@@ -62,11 +62,7 @@ class AnalysisPipeline:
                     break
                 except Exception as exc:
                     if attempt < max_attempts and should_retry_structured_error(exc):
-                        yield self._log(
-                            None,
-                            StatusType.IN_PROGRESS,
-                            f"Structured output parse issue. Retrying analysis ({attempt}/{max_attempts - 1})...",
-                        )
+                        # Retry silently to avoid exposing parser noise in end-user UI.
                         time.sleep(STRUCTURED_OUTPUT_POLICY.retry_backoff_seconds * attempt)
                         continue
                     raise
