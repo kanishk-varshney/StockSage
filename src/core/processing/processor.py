@@ -1,11 +1,14 @@
 """Stock symbol processing pipeline."""
 
 from collections.abc import Generator
+import threading
 
 from src.core.config.enums import ProcessingStage, SubStage, StatusType
 from src.core.config.models import LogEntry
 from src.core.processing.download_pipeline import DownloadPipeline
 from src.core.validation.validation import validate_symbol
+
+_ACTIVE_ANALYSIS_LOCK = threading.Lock()
 
 
 class StockProcessor:
@@ -54,16 +57,30 @@ class StockProcessor:
 
     def run(self) -> Generator[LogEntry, None, None]:
         """Execute the full pipeline: validate -> download -> analyze."""
-        yield self._log(ProcessingStage.STARTING, message=f"Processing symbol: {self.symbol}")
-
-        if not (yield from self._validate()):
+        if not _ACTIVE_ANALYSIS_LOCK.acquire(blocking=False):
+            yield self._log(
+                ProcessingStage.COMPLETE,
+                status=StatusType.FAILED,
+                message=(
+                    "Another analysis is already running on this instance. "
+                    "Please wait a moment and retry."
+                ),
+            )
             return
 
-        if not (yield from self._download()):
-            return
+        try:
+            yield self._log(ProcessingStage.STARTING, message=f"Processing symbol: {self.symbol}")
 
-        if not (yield from self._analyze()):
-            yield self._log(ProcessingStage.COMPLETE, status=StatusType.FAILED, message=f"Analysis failed for {self.symbol}")
-            return
+            if not (yield from self._validate()):
+                return
 
-        yield self._log(ProcessingStage.COMPLETE, message=f"Successfully processed {self.symbol}")
+            if not (yield from self._download()):
+                return
+
+            if not (yield from self._analyze()):
+                yield self._log(ProcessingStage.COMPLETE, status=StatusType.FAILED, message=f"Analysis failed for {self.symbol}")
+                return
+
+            yield self._log(ProcessingStage.COMPLETE, message=f"Successfully processed {self.symbol}")
+        finally:
+            _ACTIVE_ANALYSIS_LOCK.release()

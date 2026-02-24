@@ -1,6 +1,8 @@
 """Analysis pipeline that bridges CrewAI execution with the LogEntry streaming system."""
 
 from collections.abc import Generator
+import random
+import re
 import time
 
 from src.core.config.config import ENABLE_OUTPUT_CLEANUP_FALLBACK
@@ -24,6 +26,24 @@ _TASK_SUBSTAGE_MAP = {
     "review_analysis": SubStage.REVIEWING_ANALYSIS,
     "generate_investment_report": SubStage.GENERATING_INVESTMENT_REPORT,
 }
+_RATE_LIMIT_WAIT_RE = re.compile(r"Please try again in ([0-9]+(?:\.[0-9]+)?)s", re.IGNORECASE)
+_MAX_RATE_LIMIT_RETRIES = 3
+_RATE_LIMIT_JITTER_SECONDS = (0.2, 0.8)
+
+
+def _extract_retry_wait_seconds(error: Exception) -> float:
+    match = _RATE_LIMIT_WAIT_RE.search(str(error))
+    if not match:
+        return 2.0
+    try:
+        return float(match.group(1))
+    except ValueError:
+        return 2.0
+
+
+def _is_rate_limit_error(error: Exception) -> bool:
+    message = str(error).lower()
+    return "rate_limit_exceeded" in message or "rate limit reached" in message
 
 
 class AnalysisPipeline:
@@ -55,6 +75,7 @@ class AnalysisPipeline:
 
             crew_instance = StockAnalysisCrew()
             result = None
+            rate_limit_retries = 0
             max_attempts = max(1, STRUCTURED_OUTPUT_POLICY.max_retry_attempts + 1)
             for attempt in range(1, max_attempts + 1):
                 try:
@@ -66,7 +87,19 @@ class AnalysisPipeline:
                         time.sleep(STRUCTURED_OUTPUT_POLICY.retry_backoff_seconds * attempt)
                         continue
                     raise
-                except Exception:
+                except Exception as exc:
+                    if _is_rate_limit_error(exc) and rate_limit_retries < _MAX_RATE_LIMIT_RETRIES:
+                        wait_seconds = _extract_retry_wait_seconds(exc)
+                        wait_seconds += random.uniform(*_RATE_LIMIT_JITTER_SECONDS)
+                        rate_limit_retries += 1
+                        yield self._log(
+                            None,
+                            StatusType.IN_PROGRESS,
+                            f"Provider rate limit hit. Retrying in {wait_seconds:.1f}s "
+                            f"({rate_limit_retries}/{_MAX_RATE_LIMIT_RETRIES})...",
+                        )
+                        time.sleep(wait_seconds)
+                        continue
                     raise
 
             if result is None:

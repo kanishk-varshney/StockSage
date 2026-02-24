@@ -1,6 +1,10 @@
 /** Main JavaScript for StockSage UI. */
 
 let eventSource = null;
+let reconnectTimeoutId = null;
+let reconnectStartedAt = null;
+
+const RECONNECT_BUDGET_MS = 30000;
 
 const ANALYSIS_STEPS = [
     'Valuation &amp; Profitability',
@@ -97,6 +101,32 @@ function updateGlobalVerdictBadge() {
     badge.style.display = 'inline-flex';
 }
 
+function setConnectionStatus(logsDiv, message) {
+    let status = document.getElementById('connection-status');
+    if (!status) {
+        status = document.createElement('div');
+        status.id = 'connection-status';
+        status.className = 'empty-state';
+        logsDiv.prepend(status);
+    }
+    status.textContent = message;
+}
+
+function clearConnectionStatus() {
+    const status = document.getElementById('connection-status');
+    if (status) {
+        status.remove();
+    }
+}
+
+function clearReconnectTimer() {
+    if (reconnectTimeoutId) {
+        clearTimeout(reconnectTimeoutId);
+        reconnectTimeoutId = null;
+    }
+    reconnectStartedAt = null;
+}
+
 function startProcessing(event) {
     event.preventDefault();
     const symbol = document.getElementById('symbol').value;
@@ -124,6 +154,9 @@ function startProcessing(event) {
     eventSource = new EventSource(`/stream?symbol=${encodeURIComponent(symbol)}`);
 
     eventSource.onmessage = function(e) {
+        clearReconnectTimer();
+        clearConnectionStatus();
+
         const emptyState = logsDiv.querySelector('.empty-state');
         if (emptyState) {
             emptyState.remove();
@@ -156,20 +189,60 @@ function startProcessing(event) {
 
     eventSource.onerror = function(e) {
         console.error('SSE error:', e);
-        eventSource.close();
+
+        if (!reconnectStartedAt) {
+            reconnectStartedAt = Date.now();
+            setConnectionStatus(logsDiv, 'Connection interrupted. Reconnecting...');
+            reconnectTimeoutId = setTimeout(() => {
+                if (eventSource) {
+                    eventSource.close();
+                }
+                spinner.style.display = 'none';
+                submitButton.disabled = false;
+                event.target.setAttribute('aria-busy', 'false');
+                document.getElementById('progress-wrapper').style.display = 'none';
+                setConnectionStatus(
+                    logsDiv,
+                    'Connection could not be restored. Please retry your analysis.'
+                );
+            }, RECONNECT_BUDGET_MS);
+            return;
+        }
+
+        const elapsedMs = Date.now() - reconnectStartedAt;
+        if (elapsedMs >= RECONNECT_BUDGET_MS) {
+            if (eventSource) {
+                eventSource.close();
+            }
+            spinner.style.display = 'none';
+            submitButton.disabled = false;
+            event.target.setAttribute('aria-busy', 'false');
+            document.getElementById('progress-wrapper').style.display = 'none';
+            setConnectionStatus(
+                logsDiv,
+                'Connection could not be restored. Please retry your analysis.'
+            );
+        }
+    };
+
+    eventSource.addEventListener('stream_error', function(e) {
+        if (eventSource) {
+            eventSource.close();
+        }
+        clearReconnectTimer();
         spinner.style.display = 'none';
         submitButton.disabled = false;
         event.target.setAttribute('aria-busy', 'false');
         document.getElementById('progress-wrapper').style.display = 'none';
-
-        const emptyState = logsDiv.querySelector('.empty-state');
-        if (emptyState) {
-            emptyState.textContent = 'Analysis finished or connection was interrupted. Try again if needed.';
-        }
-    };
+        setConnectionStatus(logsDiv, e.data || 'Analysis failed due to a server error.');
+    });
 
     eventSource.addEventListener('complete', function() {
-        eventSource.close();
+        if (eventSource) {
+            eventSource.close();
+        }
+        clearReconnectTimer();
+        clearConnectionStatus();
         spinner.style.display = 'none';
         submitButton.disabled = false;
         event.target.setAttribute('aria-busy', 'false');
