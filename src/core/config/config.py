@@ -1,5 +1,6 @@
 """Configuration settings — single source of truth for all app config."""
 
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -21,7 +22,8 @@ OUTPUT_DIR_PATH = (_PROJECT_ROOT / DEFAULT_OUTPUT_DIR).resolve()
 # To switch models, change LLM_MODEL below — nothing else needed.
 # API keys are read from environment variables automatically by LiteLLM.
 
-LLM_MODEL = "ollama/llama3.1:8b"
+LLM_MODEL = os.getenv("LLM_MODEL", "ollama/llama3.1:8b")
+LLM_FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", "openai/gpt-4o-mini")
 
 # ── Alternative models (uncomment one to switch) ──────────
 #
@@ -51,15 +53,15 @@ LLM_MODEL = "ollama/llama3.1:8b"
 # LLM_MODEL = "groq/mixtral-8x7b-32768"
 
 # ── LLM Parameters ────────────────────────────────────────
-LLM_TEMPERATURE = 0.2       # Low for factual financial analysis (0.0 - 1.0)
-LLM_MAX_TOKENS = 4096       # Max response length per agent
-LLM_TIMEOUT = 300           # Seconds — Ollama local models can be slow on first load
+LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.2"))  # Low for factual analysis
+LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "4096"))     # Max response length per agent
+LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "300"))            # Seconds — local/remote model may cold start
 
 # ── Ollama-specific settings ──────────────────────────────
 # Only relevant when using an ollama/ model.
-OLLAMA_BASE_URL = "http://localhost:11434"
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 # OLLAMA_BASE_URL = "http://192.168.1.100:11434"  # Remote Ollama server
-OLLAMA_NUM_CTX = 16384      # Context window size — default 2048 is too small for financial data
+OLLAMA_NUM_CTX = int(os.getenv("OLLAMA_NUM_CTX", "16384"))    # Context window size
 
 # ── API Keys ──────────────────────────────────────────────
 # Set as environment variables (LiteLLM auto-detects them):
