@@ -143,21 +143,24 @@ analyze_market_sentiment:
     Find out what the market thinks about {symbol} right now.
 
     Steps:
-    1. Use the search tool (SerperDevTool) to search for: "{symbol} stock news latest"
-    2. Use the search tool to search for: "{symbol} stock analyst rating outlook 2026"
-    3. Use the search tool to search for: "{symbol} stock risks concerns"
-    4. Use the csv_reader tool to read recommendations.csv for {symbol} — analyze the
+    1. Use the search tool (SerperDevTool) for ONE compact live query:
+       "{symbol} stock news latest analyst rating"
+       - Use at most 2 external findings from this query.
+       - If the search tool fails or is rate-limited, continue with local CSV/news data only.
+    2. Use the csv_reader tool to read recommendations.csv for {symbol} — analyze the
        distribution of strongBuy, buy, hold, sell, strongSell ratings.
-    5. Use the csv_reader tool to read insider_transactions.csv — look for recent insider
+    3. Use the csv_reader tool to read insider_transactions.csv — look for recent insider
        buying or selling patterns.
-    6. Use the csv_reader tool to read institutional_holders.csv — note top holders and
+    4. Use the csv_reader tool to read institutional_holders.csv — note top holders and
        any recent position changes (pctChange column).
-    7. Use the csv_reader tool to read news.csv — review saved news headlines.
-    8. Label every finding as [POSITIVE], [NEGATIVE], or [NEUTRAL] and explain why.
+    5. Use the csv_reader tool to read news.csv — review saved news headlines.
+       - Use at most 3 local headlines to keep output concise.
+    6. Label every finding as [POSITIVE], [NEGATIVE], or [NEUTRAL] and explain why.
 
     IMPORTANT:
     - Return ONLY a valid JSON object that matches the configured Pydantic schema for this task.
     - Do not wrap JSON in markdown/code fences.
+    - Keep total citations compact (prefer 4-6 high-signal citations max).
   expected_output: >
     A structured sentiment analysis with citations:
 

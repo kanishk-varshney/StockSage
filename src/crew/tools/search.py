@@ -9,4 +9,5 @@ def create_search_tool() -> SerperDevTool:
     Requires SERPER_API_KEY environment variable to be set.
     Get a free key at https://serper.dev/
     """
-    return SerperDevTool(n_results=10)
+    # Keep result volume compact to avoid large prompt payloads and TPM spikes.
+    return SerperDevTool(n_results=3)
