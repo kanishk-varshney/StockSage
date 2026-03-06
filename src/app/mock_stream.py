@@ -9,6 +9,25 @@ from src.core.config.models import LogEntry
 SSE_RETRY_MS = 3000
 
 _MOCK_RAW_PAYLOADS_TEMPLATE: dict[SubStage, str] = {
+    SubStage.VALIDATING_DATA_SANITY: """
+Structured Summary: All critical data files present and consistent; soft blocks on 3 optional files.
+Gate Status: PASS
+Market Context: Developed market large-cap equity
+Company Type: Public
+Validated File: company_info.csv
+Validated File: historical_prices.csv
+Validated File: income_statement.csv
+Validated File: cash_flow.csv
+Validated File: recommendations.csv
+Missing/Invalid File: balance_sheet.csv
+Missing/Invalid File: insider_transactions.csv
+Missing/Invalid File: institutional_holders.csv
+Warning: Forward P/E not present in company_info.csv
+Ratio Applicability: PE Ratio -> VALID
+Ratio Applicability: P/S Ratio -> VALID
+Ratio Applicability: EV/EBITDA -> VALID
+Valuation Model Applicability: Relative Valuation -> VALID
+""",
     SubStage.ANALYZING_VALUATION_RATIOS: """
 Valuation Verdict: Fair | Near long-term average
 Insight: Valuation is not cheap, but earnings quality remains solid.
@@ -68,9 +87,23 @@ Watchout: Sentiment inputs can change quickly with macro headlines.
 Confirmed: Financial health trend aligns with profitability and cashflow signals.
 """
 
+_MOCK_COMPANY_NAMES = {
+    "AAPL": "Apple Inc.",
+    "GOOGL": "Alphabet Inc.",
+    "GOOG": "Alphabet Inc.",
+    "MSFT": "Microsoft Corporation",
+    "AMZN": "Amazon.com Inc.",
+    "TSLA": "Tesla Inc.",
+    "META": "Meta Platforms Inc.",
+    "NVDA": "NVIDIA Corporation",
+    "RELIANCE.NS": "Reliance Industries Limited",
+    "TCS.NS": "Tata Consultancy Services Limited",
+    "INFY.NS": "Infosys Limited",
+}
+
 _REPORT_TEMPLATE = """
 VERDICT: BUY | Confidence: High
-Company Name: {ticker}
+Company Name: {company_name}
 Ticker: {ticker}
 Sector: Technology
 Segment: Large Cap
@@ -78,16 +111,25 @@ Price (USD): $198.50
 Market Cap: $4.0T
 Cap Size: Very Large Cap
 Structured Summary: The business is fundamentally healthy, but valuation leaves limited margin of safety at current levels.
-Advice: Keep core holdings; avoid aggressive averaging at current levels.
-Advice: Wait for improved risk-reward or stronger earnings acceleration before adding.
+Strength: Strong free-cash-flow generation supports buybacks and dividends
+Strength: Revenue acceleration across key segments
+Risk: Premium valuation leaves little margin of safety in a downturn
+Risk: Geopolitical supply-chain exposure could pressure margins
+Best Suited For: Long-term growth investors comfortable with moderate volatility
+Best Suited For: Dividend-growth portfolio allocations
+Guidance For Existing Holders: Keep core holdings; avoid aggressive averaging at current levels.
+Guidance For New Buyers: Wait for improved risk-reward or stronger earnings acceleration before adding.
 """
 
 
 def _mock_raw_payloads(symbol: str) -> dict[SubStage, str]:
     ticker = symbol.upper() or "AAPL"
+    company_name = _MOCK_COMPANY_NAMES.get(ticker, f"{ticker} Corp.")
     payloads = dict(_MOCK_RAW_PAYLOADS_TEMPLATE)
     payloads[SubStage.REVIEWING_ANALYSIS] = _REVIEW_TEMPLATE.format(ticker=ticker)
-    payloads[SubStage.GENERATING_INVESTMENT_REPORT] = _REPORT_TEMPLATE.format(ticker=ticker)
+    payloads[SubStage.GENERATING_INVESTMENT_REPORT] = _REPORT_TEMPLATE.format(
+        ticker=ticker, company_name=company_name
+    )
     return payloads
 
 
@@ -121,6 +163,7 @@ def _build_mock_log_entries(symbol: str) -> list[LogEntry]:
 
     raw_map = _mock_raw_payloads(symbol)
     analysis_substages = [
+        SubStage.VALIDATING_DATA_SANITY,
         SubStage.ANALYZING_VALUATION_RATIOS,
         SubStage.ANALYZING_PRICE_PERFORMANCE,
         SubStage.ANALYZING_FINANCIAL_HEALTH,

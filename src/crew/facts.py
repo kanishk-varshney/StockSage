@@ -78,17 +78,24 @@ def _fmt_num(val: float | None, suffix: str = "", digits: int = 2, prefix: str =
     return f"{prefix}{val:,.{digits}f}{suffix}"
 
 
-def _fmt_large(val: float | None) -> str:
+def _currency_prefix(symbol: str) -> str:
+    s = symbol.upper()
+    if s.endswith(".NS") or s.endswith(".BO"):
+        return "\u20b9"
+    return "$"
+
+
+def _fmt_large(val: float | None, prefix: str = "$") -> str:
     if val is None:
         return "N/A"
     abs_v = abs(val)
     if abs_v >= 1_000_000_000_000:
-        return f"${val / 1_000_000_000_000:.2f}T"
+        return f"{prefix}{val / 1_000_000_000_000:.2f}T"
     if abs_v >= 1_000_000_000:
-        return f"${val / 1_000_000_000:.2f}B"
+        return f"{prefix}{val / 1_000_000_000:.2f}B"
     if abs_v >= 1_000_000:
-        return f"${val / 1_000_000:.2f}M"
-    return f"${val:,.0f}"
+        return f"{prefix}{val / 1_000_000:.2f}M"
+    return f"{prefix}{val:,.0f}"
 
 
 def _series_close(df: pd.DataFrame | None) -> np.ndarray:
@@ -494,14 +501,15 @@ def _company_basics_facts(
 ) -> str:
     name = _s(row, "longName") or _s(row, "shortName") or symbol
     mcap = _f(row, "marketCap")
+    cur = _currency_prefix(symbol)
     lines = [
         "COMPANY BASICS:",
         f"Company Name: {name}",
         f"Ticker: {symbol}",
         f"Sector: {_s(row, 'sector')}",
         f"Segment: {_s(row, 'industry')}",
-        f"Price (USD): {_fmt_num(_f(row, 'currentPrice'), prefix='$')}",
-        f"Market Cap: {_fmt_large(mcap)}",
+        f"Price: {_fmt_num(_f(row, 'currentPrice'), prefix=cur)}",
+        f"Market Cap: {_fmt_large(mcap, prefix=cur)}",
         f"Cap Size: {_cap_size(mcap)}",
     ]
 
@@ -531,7 +539,7 @@ def _company_basics_facts(
             "",
             "MARKET PULSE",
             f"Mini Screener: Valuation=Watch | Momentum=Positive | Risk=Moderate | Sentiment=Constructive",
-            f"Ticker Tape: {symbol} {_fmt_num(_f(row, 'currentPrice'), prefix='$')} ({stock_change}) | S&P 500 ({market_change}) [cached]",
+            f"Ticker Tape: {symbol} {_fmt_num(_f(row, 'currentPrice'), prefix=cur)} ({stock_change}) | S&P 500 ({market_change}) [cached]",
         ]
     )
     return "\n".join(lines)

@@ -61,6 +61,21 @@ class AnalysisPipeline:
             symbol=self.symbol,
         )
 
+    def _build_success_text(
+        self, task_name: str, task_output: Any, deterministic_facts: dict[str, str]
+    ) -> str:
+        """Validate, serialize, and enrich a single task's output."""
+        structured_model = validate_task_output(task_name, task_output)
+        output_text = (
+            serialize_structured_output(task_name, structured_model)
+            if structured_model
+            else _raw_text(task_output)
+        )
+        facts_text = deterministic_facts.get(task_name or "", "")
+        if facts_text:
+            output_text = f"{facts_text}\n\n{output_text}" if output_text else facts_text
+        return output_text
+
     async def run(self) -> AsyncGenerator[LogEntry, None]:
         """Execute the analysis crew, yielding progress entries. Sets self.success."""
         yield self._log(None, StatusType.IN_PROGRESS, "Starting AI-powered analysis...")
@@ -73,24 +88,33 @@ class AnalysisPipeline:
             total = len(task_names)
             completed = 0
             loop = asyncio.get_running_loop()
-            progress_q: asyncio.Queue[tuple[str, int]] = asyncio.Queue()
+            deterministic_facts = build_task_facts(self.symbol)
 
-            def on_task_done(_output: Any) -> None:
+            progress_q: asyncio.Queue[tuple[str, str, Any]] = asyncio.Queue()
+
+            def on_task_done(task_output: Any) -> None:
                 nonlocal completed
+                done_name = task_names[completed]
                 completed += 1
+                loop.call_soon_threadsafe(
+                    progress_q.put_nowait, ("done", done_name, task_output)
+                )
                 if completed < total:
-                    loop.call_soon_threadsafe(progress_q.put_nowait, (task_names[completed], completed + 1))
+                    loop.call_soon_threadsafe(
+                        progress_q.put_nowait, ("start", task_names[completed], None)
+                    )
 
             crew.task_callback = on_task_done
 
             result = None
             rate_limit_retries = 0
             started_substages: set[SubStage] = set()
+            completed_substages: set[SubStage] = set()
 
             while True:
                 try:
                     if task_names:
-                        await progress_q.put((task_names[0], 1))
+                        await progress_q.put(("start", task_names[0], None))
 
                     kickoff_task = asyncio.create_task(
                         crew.kickoff_async(inputs={"symbol": self.symbol})
@@ -98,20 +122,33 @@ class AnalysisPipeline:
 
                     while not kickoff_task.done() or not progress_q.empty():
                         try:
-                            task_name, index = await asyncio.wait_for(progress_q.get(), timeout=0.2)
+                            event, task_name, task_output = await asyncio.wait_for(
+                                progress_q.get(), timeout=0.2
+                            )
                         except asyncio.TimeoutError:
                             continue
 
                         substage = _TASK_SUBSTAGE_MAP.get(task_name)
-                        if not substage or substage in started_substages:
+                        if not substage:
                             continue
 
-                        started_substages.add(substage)
-                        yield self._log(
-                            substage,
-                            StatusType.IN_PROGRESS,
-                            f"{substage.display_name}...",
-                        )
+                        if event == "start":
+                            if substage not in started_substages:
+                                started_substages.add(substage)
+                                yield self._log(
+                                    substage, StatusType.IN_PROGRESS,
+                                    f"{substage.display_name}...",
+                                )
+                        elif event == "done":
+                            output_text = self._build_success_text(
+                                task_name, task_output, deterministic_facts
+                            )
+                            if output_text:
+                                if substage not in started_substages:
+                                    yield self._log(substage, StatusType.IN_PROGRESS)
+                                    started_substages.add(substage)
+                                yield self._log(substage, StatusType.SUCCESS, output_text)
+                                completed_substages.add(substage)
 
                     result = await kickoff_task
                     break
@@ -131,32 +168,21 @@ class AnalysisPipeline:
             if result is None:
                 raise RuntimeError("Crew returned no result")
 
-            deterministic_facts = build_task_facts(self.symbol)
-
+            # Safety net: yield any tasks the callback/queue race may have missed
             for task_output in getattr(result, "tasks_output", None) or []:
                 task_name = getattr(task_output, "name", None)
                 substage = _TASK_SUBSTAGE_MAP.get(task_name)
-
-                structured_model = validate_task_output(task_name, task_output)
-                output_text = (
-                    serialize_structured_output(task_name, structured_model)
-                    if structured_model
-                    else _raw_text(task_output)
-                )
-
-                facts_text = deterministic_facts.get(task_name or "", "")
-                if facts_text:
-                    output_text = f"{facts_text}\n\n{output_text}" if output_text else facts_text
-
-                if not output_text:
+                if not substage or substage in completed_substages:
                     continue
 
-                if substage:
-                    if substage not in started_substages:
-                        yield self._log(substage, StatusType.IN_PROGRESS)
-                    yield self._log(substage, StatusType.SUCCESS, output_text)
-                else:
-                    yield self._log(None, StatusType.SUCCESS, output_text)
+                output_text = self._build_success_text(
+                    task_name, task_output, deterministic_facts
+                )
+                if not output_text:
+                    continue
+                if substage not in started_substages:
+                    yield self._log(substage, StatusType.IN_PROGRESS)
+                yield self._log(substage, StatusType.SUCCESS, output_text)
 
             if not getattr(result, "tasks_output", None):
                 report_facts = deterministic_facts.get("generate_investment_report", "")

@@ -7,6 +7,7 @@ from src.core.config.enums import StatusType
 from src.core.config.models import LogEntry
 
 _ANALYSIS_SUBSTAGES = {
+    "validating_data_sanity",
     "analyzing_valuation_ratios",
     "analyzing_price_performance",
     "analyzing_financial_health",
@@ -16,6 +17,7 @@ _ANALYSIS_SUBSTAGES = {
 }
 
 _ANALYSIS_TITLES = {
+    "validating_data_sanity": "Data Quality",
     "analyzing_valuation_ratios": "Valuation",
     "analyzing_price_performance": "Price Performance &amp; Risk",
     "analyzing_financial_health": "Financial Health",
@@ -25,6 +27,7 @@ _ANALYSIS_TITLES = {
 }
 
 _ANALYSIS_ICONS = {
+    "validating_data_sanity": "&#x1F50D;",
     "analyzing_valuation_ratios": "&#x1F4C8;",
     "analyzing_price_performance": "&#x1F4C8;",
     "analyzing_financial_health": "&#x1F4B2;",
@@ -84,6 +87,18 @@ def _parse_kv(text: str, key: str) -> str:
     """Extract value for a Key: Value line, case-insensitive."""
     m = re.search(rf"(?:^|\n)\s*{re.escape(key)}\s*:\s*([^\n]+)", text, re.IGNORECASE)
     return m.group(1).strip() if m else ""
+
+
+def _parse_kv_all(text: str, key: str, limit: int = 4) -> list[str]:
+    """Extract all values for repeated Key: Value lines."""
+    results: list[str] = []
+    for m in re.finditer(rf"(?:^|\n)\s*{re.escape(key)}\s*:\s*([^\n]+)", text, re.IGNORECASE):
+        val = m.group(1).strip()
+        if val:
+            results.append(val)
+            if len(results) >= limit:
+                break
+    return results
 
 
 def _parse_kv_split(text: str, key: str) -> tuple[str, str]:
@@ -156,13 +171,13 @@ def _materialize_todos(text: str) -> str:
 # ── Verdict / badge color helpers ────────────────────────────
 
 def _verdict_colors(verdict: str) -> tuple[str, str]:
-    """Return (bg_class, text_class) for a verdict."""
+    """Return (bg_gradient_class, text_class) for a verdict."""
     v = verdict.upper()
     if "BUY" in v:
-        return "bg-green-500", "text-white"
+        return "bg-gradient-to-r from-green-500 to-emerald-600", "text-white"
     if "SELL" in v:
-        return "bg-red-500", "text-white"
-    return "bg-amber-500", "text-white"
+        return "bg-gradient-to-r from-red-500 to-rose-600", "text-white"
+    return "bg-gradient-to-r from-amber-400 to-amber-600", "text-white"
 
 
 def _verdict_dot_color(verdict: str) -> str:
@@ -297,58 +312,69 @@ def _render_report_cards(raw: str, symbol: str) -> str:
         "border-green-400 text-green-700" if confidence.lower() == "high" else "border-red-400 text-red-700"
     )
 
+    _agent_tag = re.compile(r"\s*\([^)]*analyst[^)]*\)", re.IGNORECASE)
+    def _clean(items: list[str]) -> list[str]:
+        return [_agent_tag.sub("", s).strip() for s in items]
+
+    strengths = _clean(_parse_kv_all(raw, "Strength", limit=3))
+    risks = _clean(_parse_kv_all(raw, "Risk", limit=3))
+    suited = _clean(_parse_kv_all(raw, "Best Suited For", limit=2))
+
+    tip_why = _esc("; ".join(strengths)) if strengths else "Strengths data not available."
+    tip_who = _esc("; ".join(suited)) if suited else "Suitability data not available."
+    tip_risk = _esc("; ".join(risks)) if risks else "Risk data not available."
+
     # ── Company Header Card ──
     company_header = f'''
-    <div class="mb-2">
+    <div class="mb-3">
       <div class="flex items-start justify-between">
         <div>
-          <h2 class="text-2xl font-bold text-gray-900">{_esc(name)}</h2>
-          <p class="text-sm font-mono text-green-600 mt-0.5">{_esc(ticker)}</p>
+          <h2 class="text-3xl font-bold text-gray-900">{_esc(name)}</h2>
+          <p class="text-base font-mono text-green-600 mt-0.5">{_esc(ticker)}</p>
         </div>
-        <span class="px-3 py-1 rounded-full border border-gray-300 text-xs font-semibold text-gray-700">{_esc(cap_size) if cap_size else '<!-- TODO: Cap Size not available -->'}</span>
+        <span class="px-4 py-1.5 rounded-full border border-gray-300 text-sm font-semibold text-gray-700">{_esc(cap_size) if cap_size else '<!-- TODO: Cap Size not available -->'}</span>
       </div>
-      <div class="flex items-baseline gap-6 mt-3">
+      <div class="flex items-baseline gap-8 mt-4">
         <div>
-          <p class="text-xs text-gray-500">Current Price</p>
-          <p class="text-3xl font-bold text-gray-900">{_esc(price) if price else '<!-- TODO: Price not available -->'}</p>
+          <p class="text-sm text-gray-500">Current Price</p>
+          <p class="text-4xl font-bold text-gray-900">{_esc(price) if price else '<!-- TODO: Price not available -->'}</p>
         </div>
         <div>
-          <p class="text-xs text-gray-500">Market Cap</p>
-          <p class="text-lg font-bold text-gray-700">{_esc(mcap) if mcap else '<!-- TODO: Market Cap not available -->'}</p>
+          <p class="text-sm text-gray-500">Market Cap</p>
+          <p class="text-xl font-bold text-gray-700">{_esc(mcap) if mcap else '<!-- TODO: Market Cap not available -->'}</p>
         </div>
       </div>
     </div>
 
-    <div class="bg-slate-50 border border-gray-200 rounded-xl p-5 mt-4">
-      <div class="flex items-center gap-2 mb-3">
-        <span class="w-2.5 h-2.5 rounded-full {dot_color}"></span>
-        <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Overall Verdict</span>
+    <div class="bg-slate-50 border border-gray-200 rounded-xl p-6 mt-4">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="w-3 h-3 rounded-full {dot_color}"></span>
+        <span class="text-sm font-bold text-gray-500 uppercase tracking-wider">Overall Verdict</span>
       </div>
-      <div class="flex items-center gap-4 flex-wrap">
-        <span class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-lg font-bold {vbg} {vtxt}">
+      <div class="flex items-center gap-5 flex-wrap">
+        <span class="inline-flex items-center gap-2.5 px-7 py-3 rounded-xl text-xl font-extrabold shadow-md {vbg} {vtxt}">
           &#x1F4C8; {_esc(verdict)}
         </span>
         <div>
-          <p class="text-xs text-gray-500">Confidence Level</p>
-          <span class="inline-block px-2.5 py-0.5 rounded border text-xs font-semibold {conf_cls}">{_esc(confidence)}</span>
+          <p class="text-sm text-gray-500">Confidence Level</p>
+          <span class="inline-block px-3 py-1 rounded border text-sm font-semibold {conf_cls}">{_esc(confidence)}</span>
         </div>
       </div>
-      <div class="mt-4">
-        <p class="text-sm font-bold text-gray-700 mb-1">Plain-English Summary</p>
-        <p class="text-sm text-gray-600 leading-relaxed">{_esc(summary) if summary else '<!-- TODO: Plain-English Summary not generated by LLM yet -->'}</p>
+      <div class="mt-5 border border-gray-200 rounded-lg p-4 bg-white">
+        <p class="text-base text-gray-700 leading-relaxed">{_esc(summary) if summary else '<!-- TODO: Plain-English Summary not generated by LLM yet -->'}</p>
       </div>
-      <div class="flex flex-wrap gap-2 mt-3">
-        <span class="help-icon-wrapper px-3 py-1 rounded-full border border-gray-300 text-xs font-medium text-gray-600" data-tooltip="One-line explanation of what is driving the current verdict.">Why this verdict?</span>
-        <span class="help-icon-wrapper px-3 py-1 rounded-full border border-gray-300 text-xs font-medium text-gray-600" data-tooltip="One-line summary of investor profile best aligned to this setup.">Who should invest?</span>
-        <span class="help-icon-wrapper px-3 py-1 rounded-full border border-gray-300 text-xs font-medium text-gray-600" data-tooltip="One-line top risk that can invalidate this thesis.">Key risks</span>
+      <div class="flex flex-wrap gap-2.5 mt-4">
+        <span class="help-icon-wrapper px-4 py-1.5 rounded-full border border-gray-300 text-sm font-medium text-gray-600" data-tooltip="{tip_why}">Why this verdict?</span>
+        <span class="help-icon-wrapper px-4 py-1.5 rounded-full border border-gray-300 text-sm font-medium text-gray-600" data-tooltip="{tip_who}">Who should invest?</span>
+        <span class="help-icon-wrapper px-4 py-1.5 rounded-full border border-gray-300 text-sm font-medium text-gray-600" data-tooltip="{tip_risk}">Key risks</span>
       </div>
     </div>
 
-    <div class="flex items-center gap-4 mt-4 text-sm">
+    <div class="flex items-center gap-4 mt-5 text-base">
       <span class="text-gray-500">Sector:</span>
-      <span class="px-2 py-0.5 bg-gray-100 rounded text-xs font-semibold text-gray-700">{_esc(sector) if sector else '<!-- TODO: Sector not available -->'}</span>
+      <span class="px-2.5 py-0.5 bg-gray-100 rounded text-sm font-semibold text-gray-700">{_esc(sector) if sector else '<!-- TODO: Sector not available -->'}</span>
       <span class="text-gray-500">Segment:</span>
-      <span class="text-gray-700 text-xs">{_esc(segment) if segment else '<!-- TODO: Segment not available -->'}</span>
+      <span class="text-gray-700 text-sm">{_esc(segment) if segment else '<!-- TODO: Segment not available -->'}</span>
     </div>
     '''
 
@@ -1001,6 +1027,59 @@ def _render_review_card(raw: str, symbol: str) -> str:
     return _card(body, data_section="review")
 
 
+# ── Data Quality Card ────────────────────────────────────────
+
+def _render_data_quality_card(raw: str, symbol: str) -> str:
+    summary = _parse_kv(raw, "Structured Summary") or "Data quality check completed."
+    gate = _parse_kv(raw, "Gate Status") or "UNKNOWN"
+    context = _parse_kv(raw, "Market Context") or ""
+    company_type = _parse_kv(raw, "Company Type") or ""
+
+    validated = len(_parse_kv_all(raw, "Validated File", limit=50))
+    missing = len(_parse_kv_all(raw, "Missing/Invalid File", limit=50))
+    critical = len(_parse_kv_all(raw, "Critical Issue", limit=50))
+    warnings = len(_parse_kv_all(raw, "Warning", limit=50))
+
+    gate_up = gate.upper().replace(" ", "_")
+    if gate_up == "PASS":
+        gate_cls = "bg-green-100 text-green-700 border border-green-300"
+    elif gate_up in ("FAIL", "HARD_BLOCKED"):
+        gate_cls = "bg-red-100 text-red-700 border border-red-300"
+    else:
+        gate_cls = "bg-yellow-100 text-yellow-700 border border-yellow-300"
+
+    stats_items = []
+    if validated:
+        stats_items.append(f'<span class="text-green-600 font-semibold">{validated} validated</span>')
+    if missing:
+        stats_items.append(f'<span class="text-red-600 font-semibold">{missing} missing</span>')
+    if critical:
+        stats_items.append(f'<span class="text-red-600 font-semibold">{critical} critical</span>')
+    if warnings:
+        stats_items.append(f'<span class="text-yellow-600 font-semibold">{warnings} warnings</span>')
+    stats_html = ' <span class="text-gray-300">|</span> '.join(stats_items) if stats_items else ""
+
+    meta_parts = []
+    if company_type:
+        meta_parts.append(_esc(company_type))
+    if context:
+        meta_parts.append(_esc(context))
+    meta_html = f'<p class="text-sm text-gray-500 mt-2">{" &middot; ".join(meta_parts)}</p>' if meta_parts else ""
+
+    return _card(f'''
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center gap-2">
+        <span>&#x1F50D;</span>
+        <h3 class="text-lg font-bold text-gray-900">Data Quality</h3>
+      </div>
+      <span class="px-3 py-1 rounded text-xs font-bold {gate_cls}">{_esc(gate)}</span>
+    </div>
+    <p class="text-sm text-gray-700 leading-relaxed">{_esc(summary)}</p>
+    <div class="flex items-center gap-2 mt-3 text-sm">{stats_html}</div>
+    {meta_html}
+    ''', data_section="data-quality")
+
+
 # ══════════════════════════════════════════════════════════════
 # Main entry point
 # ══════════════════════════════════════════════════════════════
@@ -1011,6 +1090,7 @@ def _format_analysis_block(log_entry: LogEntry) -> str:
     symbol = (log_entry.symbol or "").upper()
 
     renderers = {
+        "validating_data_sanity": _render_data_quality_card,
         "analyzing_valuation_ratios": _render_valuation_card,
         "analyzing_price_performance": _render_performance_card,
         "analyzing_financial_health": _render_health_card,
