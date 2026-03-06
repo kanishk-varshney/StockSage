@@ -5,58 +5,47 @@ let reconnectTimeoutId = null;
 let reconnectStartedAt = null;
 
 const RECONNECT_BUDGET_MS = 30000;
+const RUNTIME = window.STOCKSAGE_RUNTIME || {};
+const STREAM_MODE = RUNTIME.streamMode === 'mock' ? 'mock' : 'live';
+const TOTAL_PIPELINE_STEPS = RUNTIME.totalPipelineSteps || 1;
+const STAGE_LABELS = RUNTIME.stageLabels || {};
+const SUBSTAGE_LABELS = RUNTIME.substageLabels || {};
 
-const ANALYSIS_STEPS = [
-    'Valuation &amp; Profitability',
-    'Price Performance &amp; Risk',
-    'Financial Health',
-    'Market Sentiment',
-    'Quality Review',
-    'Investment Report',
-];
-const TOTAL_STEPS = ANALYSIS_STEPS.length;
-const STEP_LABELS = {
-    'Valuation &amp; Profitability': 'Valuation',
-    'Price Performance &amp; Risk': 'Performance & Risk',
-    'Financial Health': 'Financial Summary',
-    'Market Sentiment': 'Sentiment & News',
-    'Quality Review': 'Quality Review',
-    'Investment Report': 'Company Profile & Recommendation',
-};
-
-function stageLabel(step) {
-    if (step <= 0) {
-        return 'Preparing analysis...';
-    }
-    const raw = ANALYSIS_STEPS[step - 1] || 'Finalizing';
-    const friendly = STEP_LABELS[raw] || raw;
-    return `${friendly} (${step} of ${TOTAL_STEPS})`;
+function detectStageLabel(html) {
+    const sub = html.match(/data-substage="([^"]+)"/);
+    if (sub && SUBSTAGE_LABELS[sub[1]]) return SUBSTAGE_LABELS[sub[1]] + '...';
+    const stg = html.match(/data-stage="([^"]+)"/);
+    if (stg && STAGE_LABELS[stg[1]]) return STAGE_LABELS[stg[1]] + '...';
+    return null;
 }
 
-function updateProgress(step, label) {
-    const wrapper = document.getElementById('progress-wrapper');
-    const fill = document.getElementById('progress-fill');
-    const labelEl = document.getElementById('progress-label');
+const SECTION_ORDER = {
+    'company-header': 0,
+    'quick-answers': 1,
+    'valuation': 2,
+    'performance': 3,
+    'health': 4,
+    'sentiment': 5,
+    'review': 6,
+    'final-guidance': 7,
+};
 
-    wrapper.style.display = '';
-    const pct = Math.min(Math.round((step / TOTAL_STEPS) * 100), 100);
-    fill.style.width = pct + '%';
-    labelEl.textContent = label;
-
-    if (step >= TOTAL_STEPS) {
-        setTimeout(() => { wrapper.style.display = 'none'; }, 1200);
-    }
+function updateProgress(step) {
+    const fill = document.getElementById('progress-bar-fill');
+    if (!fill) return;
+    fill.style.width = `${Math.min(Math.round((step / TOTAL_PIPELINE_STEPS) * 100), 95)}%`;
 }
 
 function cardOrderPriority(card) {
-    const header = card.querySelector('.log-analysis-header');
-    const title = (header ? header.textContent : '').toLowerCase();
-    if (title.includes('valuation')) return 0;
-    if (title.includes('price performance')) return 1;
-    if (title.includes('financial health')) return 2;
-    if (title.includes('market sentiment')) return 3;
-    if (title.includes('quality review')) return 4;
-    if (title.includes('final analysis') || title.includes('investment report')) return 5;
+    const section = card.getAttribute('data-section');
+    if (section && section in SECTION_ORDER) return SECTION_ORDER[section];
+    const text = (card.textContent || '').toLowerCase();
+    if (text.includes('valuation')) return 2;
+    if (text.includes('performance')) return 3;
+    if (text.includes('financial health') || text.includes('business health')) return 4;
+    if (text.includes('market sentiment')) return 5;
+    if (text.includes('quality review')) return 6;
+    if (text.includes('final')) return 7;
     return 99;
 }
 
@@ -64,41 +53,91 @@ function reorderAnalysisCards() {
     const logsDiv = document.getElementById('logs');
     const cards = Array.from(logsDiv.querySelectorAll('.log-analysis'));
     if (cards.length < 2) return;
-
     const sorted = cards
         .map((card, index) => ({ card, index, priority: cardOrderPriority(card) }))
-        .sort((a, b) => (a.priority - b.priority) || (a.index - b.index))
-        .map(item => item.card);
+        .sort((a, b) => (a.priority - b.priority) || (a.index - b.index));
+    const alreadyOrdered = sorted.every((item, i) => item.index === i);
+    if (alreadyOrdered) return;
+    sorted.forEach(item => logsDiv.appendChild(item.card));
+}
 
-    sorted.forEach(card => logsDiv.appendChild(card));
+function initPerformanceChart() {
+    const container = document.getElementById('perf-chart-container');
+    if (!container) return;
+    const chartData = container.getAttribute('data-chart');
+    if (!chartData) return;
+
+    const canvas = document.getElementById('perf-chart');
+    if (!canvas) return;
+    const existing = Chart.getChart(canvas);
+    if (existing) return;
+
+    let data;
+    try {
+        data = JSON.parse(chartData);
+    } catch (_) {
+        return;
+    }
+
+    new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: data.labels || [],
+            datasets: [
+                { label: 'Stock Performance', data: data.stock || [], backgroundColor: '#22c55e', borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.7 },
+                { label: 'Market Benchmark', data: data.benchmark || [], backgroundColor: '#60a5fa', borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.7 },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            return `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}%`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#9ca3af' } },
+                y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 }, color: '#9ca3af', callback: function(v) { return `${v}%`; } } },
+            },
+        },
+    });
 }
 
 function updateGlobalVerdictBadge() {
     const badge = document.getElementById('global-verdict-badge');
-    const verdictNodes = Array.from(document.querySelectorAll('.gauge-verdict'));
-    if (!verdictNodes.length) {
-        badge.style.display = 'none';
-        return;
-    }
-
-    const verdict = verdictNodes[verdictNodes.length - 1].textContent.trim();
+    let verdict = '';
+    document.querySelectorAll('[data-section="company-header"], [data-section="final-guidance"]').forEach(card => {
+        const el = card.querySelector('.bg-amber-500, .bg-green-500, .bg-red-500');
+        if (el && el.textContent.trim()) verdict = el.textContent.trim();
+    });
     if (!verdict) {
-        badge.style.display = 'none';
+        badge.classList.add('hidden');
         return;
     }
-
-    badge.classList.remove('verdict-buy', 'verdict-hold', 'verdict-sell');
     const upper = verdict.toUpperCase();
+    badge.className = 'inline-flex items-center px-5 py-2 rounded-lg text-sm font-semibold';
     if (upper.includes('BUY')) {
-        badge.classList.add('verdict-buy');
+        badge.classList.add('bg-green-500', 'text-white');
     } else if (upper.includes('SELL')) {
-        badge.classList.add('verdict-sell');
+        badge.classList.add('bg-red-500', 'text-white');
     } else {
-        badge.classList.add('verdict-hold');
+        badge.classList.add('bg-amber-500', 'text-white');
     }
+    badge.textContent = `Recommendation: ${verdict.replace(/[^\w\s]/g, '').trim()}`;
+    badge.classList.remove('hidden');
+}
 
-    badge.textContent = `Recommendation: ${verdict}`;
-    badge.style.display = 'inline-flex';
+function updateLiveStatus(html) {
+    const label = detectStageLabel(html);
+    if (!label) return;
+    const progressText = document.getElementById('progress-stage-text');
+    if (progressText) progressText.textContent = label;
 }
 
 function setConnectionStatus(logsDiv, message) {
@@ -106,17 +145,15 @@ function setConnectionStatus(logsDiv, message) {
     if (!status) {
         status = document.createElement('div');
         status.id = 'connection-status';
-        status.className = 'empty-state';
+        status.className = 'text-gray-400 italic text-center py-4 text-sm';
         logsDiv.prepend(status);
     }
     status.textContent = message;
 }
 
 function clearConnectionStatus() {
-    const status = document.getElementById('connection-status');
-    if (status) {
-        status.remove();
-    }
+    const el = document.getElementById('connection-status');
+    if (el) el.remove();
 }
 
 function clearReconnectTimer() {
@@ -127,127 +164,209 @@ function clearReconnectTimer() {
     reconnectStartedAt = null;
 }
 
+function closeActiveStreamIfAny() {
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+    }
+}
+
+function setProcessingUI(formEl, isProcessing) {
+    const submitButton = formEl.querySelector('button[type="submit"]');
+    submitButton.disabled = isProcessing;
+    submitButton.textContent = isProcessing ? 'Analyzing...' : 'Analyze Stock';
+    formEl.setAttribute('aria-busy', isProcessing ? 'true' : 'false');
+}
+
+function resetRunSurface(logsDiv) {
+    logsDiv.innerHTML = '';
+    const wsLogs = document.getElementById('workspace-logs');
+    if (wsLogs) wsLogs.innerHTML = '';
+    const progressFill = document.getElementById('progress-bar-fill');
+    const progressText = document.getElementById('progress-stage-text');
+    if (progressFill) progressFill.style.width = '0%';
+    if (progressText) progressText.textContent = (STAGE_LABELS['starting'] || 'Starting') + '...';
+    showProcessingSection();
+    updateGlobalVerdictBadge();
+}
+
+function finalizeActiveWsEntry(status) {
+    const prev = document.querySelector('#workspace-logs .ws-active');
+    if (!prev) return;
+    prev.classList.remove('ws-active');
+    const icon = prev.querySelector('.ws-icon');
+    if (status === 'failed') {
+        prev.setAttribute('data-status', 'failed');
+        if (icon) icon.textContent = '\u2717';
+    } else {
+        prev.classList.add('ws-done');
+        if (icon) icon.textContent = '\u2713';
+    }
+}
+
+function showProcessingSection() {
+    const section = document.getElementById('processing-section');
+    if (section) section.classList.remove('hidden');
+}
+
+function hideProcessingSection() {
+    const section = document.getElementById('processing-section');
+    if (section) section.classList.add('hidden');
+}
+
+function appendIncomingHtml(logsDiv, html, analysisStep) {
+    clearReconnectTimer();
+    clearConnectionStatus();
+    const emptyState = logsDiv.querySelector('.empty-state');
+    if (emptyState) emptyState.remove();
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+
+    const wsEntry = wrapper.querySelector('.workspace-entry');
+    if (wsEntry) {
+        const substage = wsEntry.getAttribute('data-substage') || '';
+        const stage = wsEntry.getAttribute('data-stage') || '';
+        const key = substage || ('stage:' + stage);
+        const wsLogs = document.getElementById('workspace-logs');
+
+        if (substage && wsLogs) {
+            const existing = wsLogs.querySelector(`.workspace-entry[data-substage="${substage}"]`);
+            if (existing) {
+                const raw = wsEntry.querySelector('.ws-text')?.textContent?.replace(/^→\s*/, '').trim() || '';
+                let summaryText = '';
+                if (stage === 'analyzing') {
+                    const pfx = 'Structured Summary:';
+                    const idx = raw.indexOf(pfx);
+                    if (idx !== -1) summaryText = raw.substring(idx + pfx.length).split('\n')[0].trim();
+                } else if (raw.length <= 120) {
+                    summaryText = raw;
+                }
+                if (summaryText) {
+                    const detail = document.createElement('span');
+                    detail.className = 'ws-detail';
+                    detail.textContent = ' \u2014 ' + summaryText;
+                    existing.querySelector('.ws-text').appendChild(detail);
+                }
+                const incomingStatus = wsEntry.getAttribute('data-status') || '';
+                finalizeActiveWsEntry(incomingStatus);
+                return;
+            }
+        }
+
+        if (!analysisStep.seen.has(key)) {
+            analysisStep.seen.add(key);
+            analysisStep.value++;
+        }
+        updateProgress(analysisStep.value);
+        updateLiveStatus(html);
+        if (wsLogs) {
+            finalizeActiveWsEntry();
+            wsEntry.classList.add('ws-active');
+            wsEntry.querySelector('.ws-icon').innerHTML = '<i class="fas fa-circle-notch fa-spin ws-spinner"></i>';
+            wsLogs.appendChild(wsEntry);
+        }
+        return;
+    }
+
+    const analysisCards = wrapper.querySelectorAll('.log-analysis');
+    if (analysisCards.length) {
+        finalizeActiveWsEntry();
+        const wsLogs = document.getElementById('workspace-logs');
+        analysisCards.forEach(card => {
+            if (wsLogs) {
+                const sub = card.getAttribute('data-substage');
+                const summary = card.getAttribute('data-ws-summary');
+                if (sub && summary) {
+                    const wsRow = wsLogs.querySelector(`.workspace-entry[data-substage="${sub}"]`);
+                    if (wsRow) {
+                        const detail = document.createElement('span');
+                        detail.className = 'ws-detail';
+                        detail.textContent = ' \u2014 ' + summary;
+                        wsRow.querySelector('.ws-text').appendChild(detail);
+                    }
+                }
+            }
+            card.style.display = 'none';
+            logsDiv.appendChild(card);
+        });
+        return;
+    }
+
+    if (wrapper.innerHTML.trim()) {
+        logsDiv.insertAdjacentHTML('beforeend', wrapper.innerHTML);
+        reorderAnalysisCards();
+        updateGlobalVerdictBadge();
+        initPerformanceChart();
+    }
+    logsDiv.scrollTop = logsDiv.scrollHeight;
+}
+
+function getStreamUrl(symbol) {
+    const encoded = encodeURIComponent(symbol);
+    return STREAM_MODE === 'mock' ? `/stream/mock?symbol=${encoded}` : `/stream?symbol=${encoded}`;
+}
+
 function startProcessing(event) {
     event.preventDefault();
     const symbol = document.getElementById('symbol').value;
     const logsDiv = document.getElementById('logs');
-    const spinner = document.getElementById('spinner');
-    const submitButton = event.target.querySelector('button[type="submit"]');
-    const progressWrapper = document.getElementById('progress-wrapper');
-    const progressFill = document.getElementById('progress-fill');
+    const formEl = event.target;
+    const analysisStep = { value: 0, seen: new Set() };
 
-    spinner.style.display = 'inline';
-    submitButton.disabled = true;
-    event.target.setAttribute('aria-busy', 'true');
+    setProcessingUI(formEl, true);
+    resetRunSurface(logsDiv);
+    clearReconnectTimer();
+    closeActiveStreamIfAny();
 
-    logsDiv.innerHTML = '<div class="empty-state">Preparing your analysis...</div>';
-    progressWrapper.style.display = 'none';
-    progressFill.style.width = '0%';
-    updateGlobalVerdictBadge();
-
-    let analysisStep = 0;
-
-    if (eventSource) {
-        eventSource.close();
-    }
-
-    eventSource = new EventSource(`/stream?symbol=${encodeURIComponent(symbol)}`);
+    eventSource = new EventSource(getStreamUrl(symbol));
 
     eventSource.onmessage = function(e) {
-        clearReconnectTimer();
-        clearConnectionStatus();
-
-        const emptyState = logsDiv.querySelector('.empty-state');
-        if (emptyState) {
-            emptyState.remove();
-        }
-
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = e.data;
-
-        for (let i = 0; i < ANALYSIS_STEPS.length; i++) {
-            if (e.data.includes(ANALYSIS_STEPS[i] + '...')) {
-                analysisStep = i + 1;
-                updateProgress(analysisStep, stageLabel(analysisStep));
-                break;
-            }
-        }
-
-        const completedCard = wrapper.querySelector('.log-analysis');
-        if (completedCard) {
-            updateProgress(analysisStep, stageLabel(analysisStep));
-        }
-
-        if (wrapper.innerHTML.trim()) {
-            logsDiv.insertAdjacentHTML('beforeend', wrapper.innerHTML);
-            reorderAnalysisCards();
-            updateGlobalVerdictBadge();
-        }
-
-        logsDiv.scrollTop = logsDiv.scrollHeight;
+        appendIncomingHtml(logsDiv, e.data, analysisStep);
     };
 
     eventSource.onerror = function(e) {
         console.error('SSE error:', e);
-
         if (!reconnectStartedAt) {
             reconnectStartedAt = Date.now();
             setConnectionStatus(logsDiv, 'Connection interrupted. Reconnecting...');
             reconnectTimeoutId = setTimeout(() => {
-                if (eventSource) {
-                    eventSource.close();
-                }
-                spinner.style.display = 'none';
-                submitButton.disabled = false;
-                event.target.setAttribute('aria-busy', 'false');
-                document.getElementById('progress-wrapper').style.display = 'none';
-                setConnectionStatus(
-                    logsDiv,
-                    'Connection could not be restored. Please retry your analysis.'
-                );
+                closeActiveStreamIfAny();
+                setProcessingUI(formEl, false);
+                setConnectionStatus(logsDiv, 'Connection could not be restored. Please retry your analysis.');
             }, RECONNECT_BUDGET_MS);
             return;
         }
-
-        const elapsedMs = Date.now() - reconnectStartedAt;
-        if (elapsedMs >= RECONNECT_BUDGET_MS) {
-            if (eventSource) {
-                eventSource.close();
-            }
-            spinner.style.display = 'none';
-            submitButton.disabled = false;
-            event.target.setAttribute('aria-busy', 'false');
-            document.getElementById('progress-wrapper').style.display = 'none';
-            setConnectionStatus(
-                logsDiv,
-                'Connection could not be restored. Please retry your analysis.'
-            );
+        if (Date.now() - reconnectStartedAt >= RECONNECT_BUDGET_MS) {
+            closeActiveStreamIfAny();
+            setProcessingUI(formEl, false);
+            setConnectionStatus(logsDiv, 'Connection could not be restored. Please retry your analysis.');
         }
     };
 
     eventSource.addEventListener('stream_error', function(e) {
-        if (eventSource) {
-            eventSource.close();
-        }
+        closeActiveStreamIfAny();
         clearReconnectTimer();
-        spinner.style.display = 'none';
-        submitButton.disabled = false;
-        event.target.setAttribute('aria-busy', 'false');
-        document.getElementById('progress-wrapper').style.display = 'none';
+        setProcessingUI(formEl, false);
+        finalizeActiveWsEntry();
+        hideProcessingSection();
+        logsDiv.querySelectorAll('.log-analysis').forEach(c => c.style.display = '');
+        reorderAnalysisCards();
+        updateGlobalVerdictBadge();
+        initPerformanceChart();
         setConnectionStatus(logsDiv, e.data || 'Analysis failed due to a server error.');
     });
 
     eventSource.addEventListener('complete', function() {
-        if (eventSource) {
-            eventSource.close();
-        }
+        closeActiveStreamIfAny();
         clearReconnectTimer();
         clearConnectionStatus();
-        spinner.style.display = 'none';
-        submitButton.disabled = false;
-        event.target.setAttribute('aria-busy', 'false');
+        setProcessingUI(formEl, false);
+        finalizeActiveWsEntry();
+        hideProcessingSection();
         reorderAnalysisCards();
+        logsDiv.querySelectorAll('.log-analysis').forEach(c => c.style.display = '');
         updateGlobalVerdictBadge();
-        updateProgress(TOTAL_STEPS, 'Complete');
+        initPerformanceChart();
     });
 }

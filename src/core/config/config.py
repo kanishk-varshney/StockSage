@@ -22,7 +22,7 @@ OUTPUT_DIR_PATH = (_PROJECT_ROOT / DEFAULT_OUTPUT_DIR).resolve()
 # To switch models, change LLM_MODEL below — nothing else needed.
 # API keys are read from environment variables automatically by LiteLLM.
 
-LLM_MODEL = os.getenv("LLM_MODEL", "ollama/llama3.1:8b")
+LLM_MODEL = os.getenv("LLM_MODEL", "ollama/qwen2.5:14b-instruct")
 LLM_FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", "openai/gpt-4o-mini")
 
 # ── Alternative models (uncomment one to switch) ──────────
@@ -73,7 +73,16 @@ OLLAMA_NUM_CTX = int(os.getenv("OLLAMA_NUM_CTX", "16384"))    # Context window s
 #
 # Ollama requires no API key — runs locally.
 
-# ── Output Quality Guardrails ─────────────────────────────
-# Optional fallback cleanup pass if output is too noisy/low-evidence.
-# Keep disabled by default to avoid over-filtering valid content.
-ENABLE_OUTPUT_CLEANUP_FALLBACK = False
+# ── Crew settings ─────────────────────────────────────────
+CREW_VERBOSE = os.getenv("CREW_VERBOSE", "false").strip().lower() == "true"
+
+# ── App runtime mode (UI iteration) ────────────────────────
+# Defaults to production behavior when not set.
+APP_MODE = (os.getenv("STOCKSAGE_APP_MODE", "prod") or "prod").strip().lower()
+if APP_MODE not in {"dev", "prod"}:
+    APP_MODE = "prod"
+
+# In dev mode, route UI analyze flow to either live or mock stream.
+DEV_STREAM_MODE = (os.getenv("STOCKSAGE_DEV_STREAM_MODE", "mock") or "mock").strip().lower()
+if DEV_STREAM_MODE not in {"live", "mock"}:
+    DEV_STREAM_MODE = "mock"

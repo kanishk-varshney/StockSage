@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pandas as pd
 from src.core.config.data_contracts import (
@@ -102,16 +104,194 @@ def _to_usd_billions(val: float | None) -> str:
     return f"${val / 1_000_000_000:.2f}B"
 
 
+def _cap_size(market_cap: float | None) -> str:
+    if market_cap is None:
+        return "N/A"
+    if market_cap >= 200_000_000_000:
+        return "Very Large Cap"
+    if market_cap >= 10_000_000_000:
+        return "Large Cap"
+    if market_cap >= 2_000_000_000:
+        return "Mid Cap"
+    if market_cap >= 300_000_000:
+        return "Small Cap"
+    return "Micro Cap"
+
+
+def _monthly_chart_data(prices: pd.DataFrame | None, market: pd.DataFrame | None) -> str:
+    """Build JSON payload for the stock-vs-benchmark bar chart."""
+
+    def _resample(df: pd.DataFrame | None) -> list[tuple[str, float]]:
+        if df is None or df.empty or "Close" not in df.columns:
+            return []
+        d = df.copy()
+        if "Date" in d.columns:
+            d["Date"] = pd.to_datetime(d["Date"], errors="coerce", utc=True)
+            d = d.dropna(subset=["Date"]).set_index("Date")
+        d["Close"] = pd.to_numeric(d["Close"], errors="coerce")
+        d = d.dropna(subset=["Close"])
+        if d.empty:
+            return []
+        monthly = d["Close"].resample("ME").last().dropna()
+        returns = monthly.pct_change().dropna()
+        return [(dt.strftime("%b"), round(float(r * 100), 2)) for dt, r in returns.items()]
+
+    stock_m = _resample(prices)
+    market_m = _resample(market)
+    if not stock_m:
+        return ""
+    labels = [m[0] for m in stock_m]
+    stock_vals = [m[1] for m in stock_m]
+    market_dict = {m[0]: m[1] for m in market_m} if market_m else {}
+    market_vals = [market_dict.get(l, 0) for l in labels]
+    return json.dumps({"labels": labels, "stock": stock_vals, "benchmark": market_vals})
+
+
+def _revenue_growth_desc(rate: float | None) -> str:
+    if rate is None:
+        return "Revenue data not available"
+    pct = rate * 100
+    if pct > 15:
+        return "Growing rapidly"
+    if pct > 8:
+        return "Grows steadily every year"
+    if pct > 3:
+        return "Moderate revenue growth"
+    if pct > 0:
+        return "Small revenue gains"
+    return "Revenue is declining"
+
+
+def _earnings_growth_desc(rate: float | None) -> str:
+    if rate is None:
+        return "Earnings data not available"
+    pct = rate * 100
+    if pct > 15:
+        return "Strong profit growth"
+    if pct > 5:
+        return "Healthy profit growth"
+    if pct > 0:
+        return "Small profit gains"
+    return "Profits are declining"
+
+
+def _debt_desc(de_ratio: float | None) -> str:
+    if de_ratio is None:
+        return "Debt data not available"
+    if de_ratio < 30:
+        return "Very low debt levels"
+    if de_ratio < 60:
+        return "Debt is manageable and under control"
+    if de_ratio < 100:
+        return "Moderate debt levels"
+    return "High debt levels - needs monitoring"
+
+
+def _cashflow_desc(ocf: float | None) -> str:
+    if ocf is None:
+        return "Cash flow data not available"
+    if ocf > 0:
+        return "Generates strong cash flow"
+    return "Cash flow needs improvement"
+
+
+def _health_status(rev_growth: float | None, de_ratio: float | None, ocf: float | None) -> str:
+    score = 0
+    if rev_growth is not None and rev_growth > 0.03:
+        score += 1
+    if de_ratio is not None and de_ratio < 80:
+        score += 1
+    if ocf is not None and ocf > 0:
+        score += 1
+    if score >= 3:
+        return "STRONG"
+    if score >= 2:
+        return "STABLE"
+    if score >= 1:
+        return "MIXED"
+    return "WEAK"
+
+
+def _quick_answers(
+    row: pd.Series,
+    prices: pd.DataFrame | None,
+    market: pd.DataFrame | None,
+) -> str:
+    """Compute the four Quick-Answer lines for the wireframe."""
+    lines: list[str] = ["QUICK_ANSWERS"]
+
+    rev_g = _f(row, "revenueGrowth")
+    if rev_g is not None and rev_g > 0.10:
+        lines.append("Good Business: Yes | Strong revenue growth indicates a solid business model")
+    elif rev_g is not None and rev_g > 0.03:
+        lines.append("Good Business: Mixed | Moderate growth with some areas of concern")
+    else:
+        lines.append("Good Business: No | Weak growth signals a struggling business")
+
+    de = _f(row, "debtToEquity")
+    ocf = _f(row, "operatingCashflow")
+    if de is not None and de < 100 and ocf is not None and ocf > 0:
+        lines.append("Financially Healthy: Yes | Low debt and strong cash generation show solid financial footing")
+    elif de is not None and de < 200:
+        lines.append("Financially Healthy: Mixed | Moderate debt levels with acceptable cash flow")
+    else:
+        lines.append("Financially Healthy: No | High debt or weak cash generation are concerning")
+
+    sp = _series_close(prices)
+    if len(sp) > 10:
+        sr = np.diff(sp) / sp[:-1]
+        vol = float(np.std(sr, ddof=1) * np.sqrt(252)) * 100
+        if vol < 15:
+            lines.append(f"Stock Risky: Low | Low volatility ({vol:.0f}% annualized) - relatively stable")
+        elif vol < 30:
+            lines.append("Stock Risky: Moderate | Moderate volatility - average risk for stock investments")
+        else:
+            lines.append(f"Stock Risky: High | High volatility ({vol:.0f}% annualized) - significant price swings")
+    else:
+        lines.append("Stock Risky: Unknown | Insufficient data to assess risk")
+
+    pe = _f(row, "trailingPE")
+    if pe is not None:
+        if pe > 25:
+            lines.append("Expensive: Expensive | Trading above historical averages - may need strong growth to justify price")
+        elif pe > 15:
+            lines.append("Expensive: Fair | Trading near fair value based on earnings")
+        else:
+            lines.append("Expensive: Cheap | Trading below average valuations - potential opportunity")
+    else:
+        lines.append("Expensive: Unknown | Insufficient data to assess valuation")
+
+    return "\n".join(lines)
+
+
+def _valuation_verdict(row: pd.Series) -> str:
+    pe = _f(row, "trailingPE")
+    pb = _f(row, "priceToBook")
+    if pe is None:
+        return "Valuation Verdict: Unknown | Insufficient data"
+    if pe > 25 or (pb is not None and pb > 3):
+        return "Valuation Verdict: Yes | Trading above fair value"
+    if pe > 15:
+        return "Valuation Verdict: Fair | Trading near fair value"
+    return "Valuation Verdict: No | Trading below fair value"
+
+
 def _valuation_facts(row: pd.Series, cash: pd.DataFrame | None, symbol: str) -> str:
+    peg = _f(row, "pegRatio")
+    ev_ebitda = _f(row, "enterpriseToEbitda")
     lines = [
         "FINANCIAL SNAPSHOT",
-        f"P/E (x): {_fmt_num(_f(row, 'trailingPE'), 'x')}",
-        f"Forward P/E (x): {_fmt_num(_f(row, 'forwardPE'), 'x')}",
-        f"P/B (x): {_fmt_num(_f(row, 'priceToBook'), 'x')}",
-        f"P/S (x): {_fmt_num(_f(row, 'priceToSalesTrailing12Months'), 'x')}",
+        f"P/E Ratio: {_fmt_num(_f(row, 'trailingPE'), 'x')}",
+        f"Forward P/E: {_fmt_num(_f(row, 'forwardPE'), 'x')}",
+        f"P/B Ratio: {_fmt_num(_f(row, 'priceToBook'), 'x')}",
+        f"P/S Ratio: {_fmt_num(_f(row, 'priceToSalesTrailing12Months'), 'x')}",
+        f"PEG Ratio: {_fmt_num(peg, 'x') if peg else 'N/A'}",
+        f"EV/EBITDA: {_fmt_num(ev_ebitda, 'x') if ev_ebitda else 'N/A'}",
         f"ROE (%): {_fmt_num(_f(row, 'returnOnEquity', 0) * 100 if _f(row, 'returnOnEquity') is not None else None, '%')}",
         f"ROA (%): {_fmt_num(_f(row, 'returnOnAssets', 0) * 100 if _f(row, 'returnOnAssets') is not None else None, '%')}",
         f"Gross Margin (%): {_fmt_num(_f(row, 'grossMargins', 0) * 100 if _f(row, 'grossMargins') is not None else None, '%')}",
+        "",
+        _valuation_verdict(row),
         "",
         "INSIGHT",
         "Insight: Valuation is rich; watch earnings growth to justify current multiples.",
@@ -121,7 +301,7 @@ def _valuation_facts(row: pd.Series, cash: pd.DataFrame | None, symbol: str) -> 
             idx = cash.iloc[:, 0] == "Free Cash Flow"
             val = pd.to_numeric(cash.loc[idx].iloc[0, 1], errors="coerce")
             if not pd.isna(val):
-                lines.insert(8, f"Free Cash Flow (USD B): {_to_usd_billions(float(val))}")
+                lines.insert(10, f"Free Cash Flow (USD B): {_to_usd_billions(float(val))}")
         except Exception:
             pass
     return "\n".join(lines)
@@ -140,6 +320,13 @@ def _performance_facts(prices: pd.DataFrame | None, market: pd.DataFrame | None)
     peak = np.maximum.accumulate(sp)
     mdd = float(np.min((sp - peak) / peak))
 
+    risk_free = 0.05
+    sharpe = round((annualized - risk_free) / vol, 2) if vol > 0 else 0.0
+
+    market_total = None
+    if len(mp) >= 3:
+        market_total = (mp[-1] - mp[0]) / mp[0]
+
     beta = None
     if len(mp) >= 3:
         min_len = min(len(sp), len(mp))
@@ -149,37 +336,84 @@ def _performance_facts(prices: pd.DataFrame | None, market: pd.DataFrame | None)
         if cov[1, 1] != 0:
             beta = float(cov[0, 1] / cov[1, 1])
 
+    vol_pct = vol * 100
+    if vol_pct < 15:
+        vol_label = "Low"
+    elif vol_pct < 30:
+        vol_label = "Moderate"
+    else:
+        vol_label = "High"
+
+    perf_badge = "IN LINE"
+    if market_total is not None:
+        if total > market_total + 0.02:
+            perf_badge = "OUTPERFORMING"
+        elif total < market_total - 0.02:
+            perf_badge = "UNDERPERFORMING"
+
+    chart_json = _monthly_chart_data(prices, market)
+
     lines = [
         "PERFORMANCE & RISK",
         f"Total Return (%): {_fmt_num(total * 100, '%')}",
         f"Annualized Return (%): {_fmt_num(annualized * 100, '%')}",
-        f"Volatility (%): {_fmt_num(vol * 100, '%')}",
+        f"Volatility (%): {_fmt_num(vol_pct, '%')}",
+        f"Volatility Label: {vol_label}",
         f"Max Drawdown (%): {_fmt_num(mdd * 100, '%')}",
         f"Beta (vs market): {_fmt_num(beta, 'x')}",
+        f"Sharpe Ratio: {sharpe}",
+        f"Market Total Return (%): {_fmt_num(market_total * 100, '%') if market_total is not None else 'N/A'}",
+        f"Performance Badge: {perf_badge}",
+    ]
+    if chart_json:
+        lines.append(f"CHART_DATA: {chart_json}")
+    lines.extend([
         "",
         "INSIGHT",
         "Insight: Risk is acceptable for growth investors if drawdowns are tolerated.",
-    ]
+    ])
     return "\n".join(lines)
 
 
 def _financial_health_facts(row: pd.Series, income: pd.DataFrame | None, cash: pd.DataFrame | None) -> str:
-    lines = ["FINANCIAL HEALTH"]
-
     rev_growth = _f(row, "revenueGrowth")
     earn_growth = _f(row, "earningsGrowth")
-    if rev_growth is not None:
-        lines.append(f"Revenue Growth (%): {_fmt_num(rev_growth * 100, '%')}")
-    if earn_growth is not None:
-        lines.append(f"Earnings Growth (%): {_fmt_num(earn_growth * 100, '%')}")
+    de_ratio = _f(row, "debtToEquity")
+    ocf = _f(row, "operatingCashflow")
 
-    lines.extend(
-        [
-            f"Debt/Equity: {_fmt_num(_f(row, 'debtToEquity'))}",
-            f"Current Ratio: {_fmt_num(_f(row, 'currentRatio'))}",
-            f"Operating Cash Flow (USD B): {_to_usd_billions(_f(row, 'operatingCashflow'))}",
-        ]
+    status = _health_status(rev_growth, de_ratio, ocf)
+
+    lines = [
+        "FINANCIAL HEALTH",
+        f"Health Status: {status}",
+    ]
+
+    lines.append(
+        "HEALTH_DESCRIPTIONS"
     )
+    rg_pct = _fmt_num(rev_growth * 100, "% annually") if rev_growth is not None else "N/A"
+    eg_pct = _fmt_num(earn_growth * 100, "% annually") if earn_growth is not None else "N/A"
+    de_display = _fmt_num(de_ratio, "% ratio") if de_ratio is not None else "N/A"
+    ocf_display = _fmt_large(ocf) if ocf is not None else "N/A"
+
+    lines.extend([
+        f"Revenue Growth Desc: {_revenue_growth_desc(rev_growth)} | {rg_pct}",
+        f"Profit Growth Desc: {_earnings_growth_desc(earn_growth)} | {eg_pct}",
+        f"Debt Desc: {_debt_desc(de_ratio)} | {de_display}",
+        f"Cash Desc: {_cashflow_desc(ocf)} | {ocf_display}",
+    ])
+
+    lines.append("")
+    lines.append("FINANCIAL METRICS")
+    if rev_growth is not None:
+        lines.append(f"Revenue Growth Rate: {_fmt_num(rev_growth * 100, '%')}")
+    if earn_growth is not None:
+        lines.append(f"Earnings Growth Rate: {_fmt_num(earn_growth * 100, '%')}")
+    lines.extend([
+        f"Debt/Equity: {_fmt_num(de_ratio)}",
+        f"Current Ratio: {_fmt_num(_f(row, 'currentRatio'))}",
+        f"Operating Cash Flow (USD B): {_to_usd_billions(ocf)}",
+    ])
 
     if income is not None and not income.empty and "Total Revenue" in income.iloc[:, 0].values:
         try:
@@ -259,6 +493,7 @@ def _company_basics_facts(
     market: pd.DataFrame | None,
 ) -> str:
     name = _s(row, "longName") or _s(row, "shortName") or symbol
+    mcap = _f(row, "marketCap")
     lines = [
         "COMPANY BASICS:",
         f"Company Name: {name}",
@@ -266,7 +501,8 @@ def _company_basics_facts(
         f"Sector: {_s(row, 'sector')}",
         f"Segment: {_s(row, 'industry')}",
         f"Price (USD): {_fmt_num(_f(row, 'currentPrice'), prefix='$')}",
-        f"Market Cap: {_fmt_large(_f(row, 'marketCap'))}",
+        f"Market Cap: {_fmt_large(mcap)}",
+        f"Cap Size: {_cap_size(mcap)}",
     ]
 
     peers: list[str] = []
@@ -287,6 +523,8 @@ def _company_basics_facts(
 
     lines.extend(
         [
+            "",
+            _quick_answers(row, prices, market),
             "",
             "RECOMMENDATION",
             "VERDICT: HOLD | Confidence: Medium",

@@ -1,14 +1,40 @@
 """Stock symbol processing pipeline."""
 
-from collections.abc import Generator
-import threading
+import asyncio
+from collections.abc import AsyncGenerator, Generator
+from typing import TypeVar
 
 from src.core.config.enums import ProcessingStage, SubStage, StatusType
 from src.core.config.models import LogEntry
 from src.core.processing.download_pipeline import DownloadPipeline
 from src.core.validation.validation import validate_symbol
 
-_ACTIVE_ANALYSIS_LOCK = threading.Lock()
+_ACTIVE_LOCK = asyncio.Lock()
+
+_T = TypeVar("_T")
+
+_SYNC_GEN_DONE = object()
+
+
+async def _stream_sync_gen(gen: Generator[_T, None, object]) -> AsyncGenerator[_T, None]:
+    """Bridge a sync generator to async, running it in the default executor."""
+    q: asyncio.Queue = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+
+    def drain() -> None:
+        try:
+            for item in gen:
+                loop.call_soon_threadsafe(q.put_nowait, item)
+        finally:
+            loop.call_soon_threadsafe(q.put_nowait, _SYNC_GEN_DONE)
+
+    fut = loop.run_in_executor(None, drain)
+    while True:
+        item = await q.get()
+        if item is _SYNC_GEN_DONE:
+            break
+        yield item
+    await fut
 
 
 class StockProcessor:
@@ -26,7 +52,7 @@ class StockProcessor:
         return LogEntry(stage=stage, substage=substage, status_type=status, message=message, symbol=self.symbol)
 
     def _validate(self) -> Generator[LogEntry, None, bool]:
-        """Validate the stock symbol format and existence."""
+        """Validate the stock symbol format and existence (sync — fast, no I/O)."""
         yield self._log(ProcessingStage.VALIDATING)
         yield self._log(ProcessingStage.VALIDATING, SubStage.VALIDATING_SYMBOL)
 
@@ -38,26 +64,30 @@ class StockProcessor:
         yield self._log(ProcessingStage.VALIDATING, SubStage.VALIDATING_SYMBOL, StatusType.SUCCESS)
         return True
 
-    def _download(self) -> Generator[LogEntry, None, bool]:
-        """Download all market data for the symbol."""
+    async def _download(self) -> AsyncGenerator[LogEntry, None]:
+        """Download all market data for the symbol, streaming progress entries."""
         yield self._log(ProcessingStage.DOWNLOADING_DATA)
 
-        stock_data = yield from DownloadPipeline(self.symbol).run()
+        pipeline = DownloadPipeline(self.symbol)
+        async for entry in _stream_sync_gen(pipeline.run()):
+            yield entry
 
-        if stock_data is None or not stock_data.is_valid():
-            return False
+        if pipeline.stock_data is None or not pipeline.stock_data.is_valid():
+            self._download_ok = False
+        else:
+            self._download_ok = True
 
-        return True
-
-    def _analyze(self) -> Generator[LogEntry, None, bool]:
+    async def _analyze(self) -> AsyncGenerator[LogEntry, None]:
         """Run CrewAI-powered analysis on downloaded data."""
         from src.crew.pipeline import AnalysisPipeline
-        success = yield from AnalysisPipeline(self.symbol).run()
-        return success
 
-    def run(self) -> Generator[LogEntry, None, None]:
+        self._pipeline = AnalysisPipeline(self.symbol)
+        async for entry in self._pipeline.run():
+            yield entry
+
+    async def run(self) -> AsyncGenerator[LogEntry, None]:
         """Execute the full pipeline: validate -> download -> analyze."""
-        if not _ACTIVE_ANALYSIS_LOCK.acquire(blocking=False):
+        if _ACTIVE_LOCK.locked():
             yield self._log(
                 ProcessingStage.COMPLETE,
                 status=StatusType.FAILED,
@@ -68,19 +98,27 @@ class StockProcessor:
             )
             return
 
-        try:
+        async with _ACTIVE_LOCK:
             yield self._log(ProcessingStage.STARTING, message=f"Processing symbol: {self.symbol}")
 
-            if not (yield from self._validate()):
+            valid = True
+            for entry in self._validate():
+                yield entry
+                if entry.status_type == StatusType.FAILED:
+                    valid = False
+            if not valid:
                 return
 
-            if not (yield from self._download()):
+            self._download_ok = True
+            async for entry in self._download():
+                yield entry
+            if not self._download_ok:
                 return
 
-            if not (yield from self._analyze()):
+            async for entry in self._analyze():
+                yield entry
+            if not self._pipeline.success:
                 yield self._log(ProcessingStage.COMPLETE, status=StatusType.FAILED, message=f"Analysis failed for {self.symbol}")
                 return
 
             yield self._log(ProcessingStage.COMPLETE, message=f"Successfully processed {self.symbol}")
-        finally:
-            _ACTIVE_ANALYSIS_LOCK.release()

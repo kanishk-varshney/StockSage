@@ -1,209 +1,175 @@
-# StockSage Walkthrough (Step-by-Step Debug Guide)
+# StockSage Walkthrough: Fast UI Iteration + Production Safety
 
-This document is a practical walkthrough of what happens from click to UI render, with focus on the issues you reported:
-
-1. Agent output is good, but UI representation is off (especially sentiment labels)
-2. US stocks failing in sentiment step
-3. Progress feels hung for minutes
-4. UI hierarchy feels inconsistent
-5. Need a clean debug mode (less verbose noise)
+This guide is the single source of truth for how to iterate quickly on UI/UX in dev mode without waiting 5-10 minutes for full model analysis, while keeping production behavior safe and unchanged.
 
 ---
 
-## 1) End-to-end flow at a glance
+## 1) Runtime Modes and Guarantees
+
+- `STOCKSAGE_APP_MODE=dev`
+  - Analyze uses fast stream mode (mock by default).
+  - Downloading/progress steps are still shown end-to-end.
+  - Uses cached previous run output for the same symbol when available.
+- `STOCKSAGE_APP_MODE=prod` (or unset/invalid)
+  - Analyze uses the real pipeline (`/stream`).
+  - Full download + analysis + model calls run as normal.
+
+Important guarantees:
+- If `STOCKSAGE_APP_MODE` is missing, empty, or invalid, app defaults to `prod`.
+- UI templates/CSS/JS rendering path is shared between dev and prod.
+- Dev mode changes only the stream source/speed, not UI structure.
+
+---
+
+## 2) End-to-End Flow
 
 ```mermaid
 flowchart LR
-userClick[User clicks Analyze] --> browserSSE[EventSource /stream]
-browserSSE --> apiStream[src/app/main.py stream_logs]
-apiStream --> processor[StockProcessor.run]
-processor --> validate[Validation step]
-processor --> download[DownloadPipeline step]
-processor --> analyze[AnalysisPipeline step]
-analyze --> crewRun[StockAnalysisCrew kickoff]
-crewRun --> structuredValidate[validate_task_output]
-structuredValidate --> structuredSerialize[serialize_structured_output]
-structuredSerialize --> formatHTML[format_log_entry]
-formatHTML --> sseMessage[data: html]
-sseMessage --> browserRender[src/app/static/js/main.js]
-browserRender --> uiCards[Cards / progress / verdict badge]
+analyzeClick[AnalyzeButton] --> runtimeConfig[ServerInjectedRuntimeConfig]
+runtimeConfig -->|prod| liveEndpoint[/stream]
+runtimeConfig -->|dev+mock| mockEndpoint[/stream/mock]
+liveEndpoint --> sseFrames[SSE data frames]
+mockEndpoint --> sseFrames
+sseFrames --> formatterHTML[format_log_entry HTML blocks]
+formatterHTML --> sharedFrontendRender[shared main.js render pipeline]
+sharedFrontendRender --> uiCards[Cards Progress Verdict]
 ```
 
 ---
 
-## 2) Backend pipeline walkthrough
+## 3) File Map (What to Edit for UI Work)
 
-### A. Request entry
-- File: `src/app/main.py`
-- Endpoint: `/stream?symbol=...`
-- `stream_logs()` starts a background producer thread and streams SSE frames:
-  - `data: ...` for normal messages
-  - `: ping` heartbeats every 10s when idle
-  - `event: stream_error` on backend errors
-  - `event: complete` at the end
+- UI shell and structure: `src/app/templates/index.html`
+- UI styles: `src/app/static/css/style.css`
+- SSE render behavior/progress/card ordering: `src/app/static/js/main.js`
+- Card HTML generation and card internals: `src/app/utils/formatters.py`
+- Runtime mode + mock/live endpoints: `src/app/main.py`
+- Environment mode settings: `src/core/config/config.py`
 
-### B. Processing orchestration
-- File: `src/core/processing/processor.py`
-- `StockProcessor.run()` stages:
-  1. `STARTING`
-  2. `VALIDATING`
-  3. `DOWNLOADING_DATA`
-  4. `ANALYZING`
-  5. `COMPLETE`
-- Current protection: `_ACTIVE_ANALYSIS_LOCK` allows only one in-flight analysis per instance.
-
-### C. Analysis and task execution
-- File: `src/crew/pipeline.py`
-- `AnalysisPipeline.run()`:
-  - Runs `StockAnalysisCrew().crew().kickoff(...)`
-  - Handles structured output validation/retry
-  - Handles 429 rate-limit retry with jitter (up to 3)
-  - Builds deterministic facts and prepends them to task output
-  - Emits substage logs for each task
-
-### D. Structured output conversion
-- File: `src/crew/structured_output.py`
-- For each task:
-  - Validate model-specific schema (`SentimentOutput`, etc.)
-  - Serialize to line-based text (e.g., `Sentiment Signal: Positive`)
-- This serialized text is what the UI formatter consumes.
+If you are changing look-and-feel, you usually only need:
+- `index.html`
+- `style.css`
+- `formatters.py`
+- sometimes `main.js` for ordering/progress behaviors
 
 ---
 
-## 3) UI rendering walkthrough (where data can look wrong)
+## 4) Fast Dev Iteration (No UI Debug Controls)
 
-### A. SSE client and progress
-- File: `src/app/static/js/main.js`
-- `startProcessing()` creates `EventSource('/stream?...')`
-- On each message:
-  - appends HTML from backend
-  - tries to infer step progress from text matching:
-    - `Valuation & Profitability...`
-    - `Price Performance & Risk...`
-    - `Financial Health...`
-    - `Market Sentiment...`
-    - `Quality Review...`
-    - `Investment Report...`
+### A) .env setup
 
-### B. Why progress can feel stuck
-- Progress advances only when matching those step-title strings.
-- During long LLM calls, there may be heartbeats but no new step label.
-- So the user sees no step movement even though backend is alive.
+In `.env`:
 
-### C. Why sentiment can look wrong on card
-- File: `src/app/utils/formatters.py`
-- Header badge is inferred by regex over raw text (`positive`, `negative`, `neutral` words).
-- If wording is mixed, badge detection can drift from true model signal.
-- Structured signal exists (`Sentiment Signal: Positive`) but UI badge currently still relies on text pattern precedence.
+```bash
+STOCKSAGE_APP_MODE=dev
+STOCKSAGE_DEV_STREAM_MODE=mock
+```
 
----
+Notes:
+- `STOCKSAGE_DEV_STREAM_MODE` supports `mock` and `live`.
+- In `dev+mock`, UI updates appear quickly and still show realistic staged logs.
 
-## 4) Reported issues mapped to exact code points
+### B) How mock stream works
 
-## Issue 1: "Agent output good, but UI not putting it correctly"
-- Primary renderer: `format_log_entry()` in `src/app/utils/formatters.py`
-- Sentiment badge logic: `_extract_card_badge()` + `_CARD_SENTIMENT_PATTERNS`
-- Structured sentiment is available in serialized lines via `serialize_structured_output()` but badge is regex-derived.
+- Endpoint: `/stream/mock`
+- It first tries to load cached previous stream output for symbol from:
+  - `.market_data/<SYMBOL>/.ui_stream_cache.json`
+- If cache exists:
+  - Replays cached frames quickly (full step sequence visible).
+- If cache does not exist:
+  - Falls back to deterministic mock payloads with full stage flow.
 
-Debug check:
-1. In logs, inspect emitted sentiment block text.
-2. Confirm `Sentiment Signal: ...` line is present.
-3. Compare with resulting badge class in card header.
+### C) How cache gets created
 
-## Issue 2: "US stocks failing in sentiment"
-- Sentiment task definition: `src/crew/config/tasks.yaml`
-- Search tool volume: `src/crew/tools/search.py` (`n_results` now reduced)
-- Likely failure mode: token/rate pressure during sentiment stage due to live search payload + model limits.
-
-Debug check:
-1. Confirm failure text from `AnalysisPipeline` includes 429 or structured validation error.
-2. Confirm sentiment task receives compact citations, not huge payload.
-3. Validate `SERPER_API_KEY` and external search reliability.
-
-## Issue 3: "No progress bar / hangs"
-- Progress update is text-trigger based in `main.js`.
-- If there are long gaps between substage markers, bar appears frozen.
-- Heartbeats keep stream alive but do not currently advance step.
-
-Debug check:
-1. Browser console: ensure EventSource remains open.
-2. Network tab: confirm SSE receives `: ping` comments.
-3. Ensure `analyzing_*` IN_PROGRESS logs are emitted before each task.
-
-## Issue 4: "UI all over the place"
-- Card order is normalized by `reorderAnalysisCards()` in `main.js`.
-- But section-level body content comes from complex parsing rules in `formatters.py`.
-- Inconsistent model text structure can produce uneven card internals.
+- Every successful real run through `/stream` stores stream HTML frames in:
+  - `.market_data/<SYMBOL>/.ui_stream_cache.json`
+- That cache is reused in dev mock mode for fast iteration.
 
 ---
 
-## 5) Debug mode recommendation (temporary)
+## 5) 2-Minute UI Iteration Loop
 
-Goal: reduce noise and inspect output deterministically.
+1. Set `.env` to dev mock mode.
+2. Start app normally.
+3. Run one symbol (e.g., `AAPL`) and review UI immediately (seconds).
+4. Edit UI files (`formatters.py`, `style.css`, `index.html`).
+5. Refresh and rerun same symbol.
+6. Repeat until layout and UX are correct.
 
-### A. Disable Crew verbose chatter
-- File: `src/crew/crew.py`
-- For temporary debug:
-  - Set each `Agent(..., verbose=False)`
-  - Set `Crew(..., verbose=False)`
-
-### B. Keep only structured output path
-- File: `src/crew/pipeline.py`
-- Temporarily prefer:
-  - `output_text = structured_text`
-  - skip fallback to `str(task_output)` unless structured is empty
-
-### C. Add one debug marker per task
-- In analysis loop, emit log with:
-  - task name
-  - structured model validation pass/fail
-  - output length
-
-This makes it obvious whether the issue is model output, serializer, or formatter.
+When ready for real behavior:
+1. Set `.env` to production:
+   - `STOCKSAGE_APP_MODE=prod`
+2. Restart app.
+3. Run full real analysis to validate final end-to-end behavior.
 
 ---
 
-## 6) Concrete review checklist (run top to bottom)
+## 6) Production Validation Checklist
 
-1. Trigger one symbol (`AAPL`) and record full SSE stream.
-2. For each task, confirm:
-   - task started (`IN_PROGRESS`)
-   - task succeeded (`SUCCESS`)
-   - structured model validated
-3. For sentiment:
-   - check exact serialized lines
-   - verify badge derivation matches sentiment signal
-4. Confirm progress steps advance 1..6 based on received events.
-5. Confirm final `complete` event is received.
-6. Compare UI card content vs serialized source text.
+- `.env` does not set `STOCKSAGE_APP_MODE=dev`.
+- Runtime config in browser resolves to `streamMode: live`.
+- Analyze requests go to `/stream` (not `/stream/mock`).
+- Full download and model analysis run end-to-end.
+- UI output matches dev-validated styling and structure.
 
 ---
 
-## 7) Proposed short-term cleanup plan (minimal, non-bloated)
+## 7) Troubleshooting
 
-1. Make sentiment badge derive from explicit line `Sentiment Signal: X` first, regex second.
-2. Emit dedicated SSE event per substage (`event: stage`) and drive progress from event, not string matching.
-3. Add a compact "currently running: <task>" status label in UI.
-4. Keep search payload tight for sentiment (already reduced).
-5. Keep verbose off in production; enable via env flag when debugging.
+### Dev mode still feels slow
+- Check `.env` has:
+  - `STOCKSAGE_APP_MODE=dev`
+  - `STOCKSAGE_DEV_STREAM_MODE=mock`
+- Restart app after env changes.
+- Confirm browser request is `/stream/mock`.
+
+### Mock mode not using previous symbol run
+- Check cache file exists:
+  - `.market_data/<SYMBOL>/.ui_stream_cache.json`
+- If missing, run one real analysis once in prod/live mode to seed cache.
+
+### UI mismatch between dev and prod
+- Ensure UI edits are only in shared files (`index.html`, `style.css`, `formatters.py`, `main.js`).
+- Ensure no dev-only branch modifies HTML structure.
+
+### Progress appears stuck
+- Check SSE stream request remains open.
+- Confirm stream frames continue arriving.
+- Verify analysis step labels are still matched by `main.js`.
 
 ---
 
-## 8) Wireframe input
+## 8) Recommended Working Rules
 
-Yes, you can absolutely share a wireframe. That is the fastest way to fix the UI consistency issue.
+- Keep all debug/fast mode controls out of visible UI.
+- Keep mode switching exclusively via `.env`.
+- Keep card rendering deterministic in `formatters.py`.
+- Keep polarity rules strict:
+  - Green = positive
+  - Red = negative
+  - Yellow = caution/watchout
 
-Best format:
-- one screenshot/wireframe with labeled blocks:
-  - top summary
-  - progress area
-  - analysis cards
-  - sentiment/news section
-  - final recommendation block
-- plus 3 rules:
-  - visual priority order
-  - what must always be visible
-  - what can be collapsible
+This setup is designed specifically for fast UI/UX iteration now, with safe promotion to real production behavior by only changing env mode.
 
-I can then map wireframe -> exact DOM/CSS/component changes with minimal churn.
+---
+
+## 9) Agentic Output Iteration Loop (Crew + Schemas)
+
+Use this loop when refining agent/task prompts and structured outputs before pipeline/UI integration.
+
+1. Run local crew smoke test:
+   - `./.venv/bin/python test_crew.py`
+2. Confirm task order and progress in console:
+   - `START/DONE` lines show per-task run order.
+   - ETA hints are shown after the first completed task.
+3. Validate structured output parsing:
+   - Ensure each task prints schema-aligned JSON under `TASK OUTPUTS`.
+   - Fix prompt/schema mismatches first (before UI formatting changes).
+4. Re-run after each small prompt/schema update.
+5. Only after stable schema output, move to UI formatting iteration.
+
+Tracing notes:
+- Crew tracing is enabled in `src/crew/crew.py` (`tracing=True`).
+- Inspect traces via your configured CrewAI tracing backend/viewer in your local environment.
+- Keep one symbol constant (for example `AAPL`) during prompt/schema iteration for comparable runs.
 

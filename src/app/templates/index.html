@@ -4,51 +4,68 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StockSage - Stock Analysis</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ v }}">
 </head>
-<body>
-    <div class="container">
-        <h1>StockSage</h1>
-        <p class="subtitle">Enter a stock symbol to begin analysis</p>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8 text-gray-700">
+    <div class="app-shell mx-auto">
+        <header class="mb-5">
+            <h1 class="text-4xl font-bold bg-gradient-to-r from-purple-600 via-fuchsia-500 to-amber-400 bg-clip-text text-transparent">StockSage</h1>
+        </header>
 
-        <form id="process-form" onsubmit="startProcessing(event); return false;">
-            <div class="form-group">
-                <label for="symbol">
+        <main>
+        <form id="process-form" onsubmit="startProcessing(event); return false;" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6" aria-label="Stock analysis input form">
+            <div class="mb-4">
+                <label for="symbol" class="block text-sm font-medium text-gray-600 mb-2">
                     Stock Symbol
-                    <span class="help-icon-wrapper" tabindex="0" role="button" aria-label="Symbol format help" data-tooltip="US stocks: 1-5 letters (AAPL). Indian stocks: add .NS or .BO (RELIANCE.NS).">
-                        <i class="fas fa-info-circle help-icon"></i>
+                    <span class="help-icon-wrapper" tabindex="0" role="button" aria-label="Symbol format help" data-tooltip="Enter a stock ticker symbol. Add .NS for Indian stocks (e.g., RELIANCE.NS) or use US ticker symbols (e.g., AAPL, MSFT)">
+                        <i class="fas fa-circle-info text-gray-400 text-sm ml-1.5 cursor-help hover:text-purple-500 transition-colors"></i>
                     </span>
                 </label>
-                <input 
-                    type="text" 
-                    id="symbol" 
-                    name="symbol" 
+                <input
+                    type="text"
+                    id="symbol"
+                    name="symbol"
                     placeholder="e.g., AAPL, GOOGL, RELIANCE.NS"
                     required
                     autofocus
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:bg-white transition-colors"
                 >
             </div>
-            <button type="submit">Analyze Stock</button>
-            <span id="spinner" style="display: none; margin-left: 1rem; color: #a78bfa;">Analyzing...</span>
+            <div class="flex items-center gap-3">
+                <button type="submit" class="bg-gradient-to-r from-violet-600 to-blue-500 text-white px-5 py-2 rounded-lg text-sm font-semibold shadow-md hover:shadow-lg hover:from-violet-700 hover:to-blue-600 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none">Analyze Stock</button>
+                <div id="global-verdict-badge" class="hidden px-5 py-2 rounded-lg text-sm font-semibold" aria-live="polite"></div>
+            </div>
+
         </form>
 
-        <div id="global-verdict-badge" class="global-verdict-badge" style="display:none;" aria-live="polite"></div>
-
-        <div class="logs-container">
-            <h3>Analysis Workspace</h3>
-            <div id="progress-wrapper" style="display:none;">
-                <div id="progress-bar">
-                    <div id="progress-fill"></div>
+        <div id="processing-section" class="hidden mb-6">
+            <div id="progress-card" class="bg-white rounded-xl shadow-sm border border-gray-200 px-5 py-3">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="processing-dot" aria-hidden="true"></span>
+                    <span id="progress-stage-text" class="text-sm font-medium text-gray-700">Starting analysis...</span>
                 </div>
-                <div id="progress-label"></div>
+                <div class="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div id="progress-bar-fill" class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-700 ease-out" style="width: 0%"></div>
+                </div>
             </div>
-            <div id="logs" aria-live="polite">
-                <div class="empty-state">Enter a stock symbol above to view your analysis.</div>
+            <div id="workspace-card">
+                <h3 id="workspace-title">Analysis Workspace</h3>
+                <div id="workspace-logs"></div>
             </div>
         </div>
 
-        <script src="/static/js/main.js"></script>
+        <section id="logs" class="space-y-6" aria-live="polite" aria-label="Analysis results">
+            <div class="empty-state text-gray-400 italic text-center py-8">Enter a stock symbol above to start.</div>
+        </section>
+
+        <script>
+            window.STOCKSAGE_RUNTIME = {{ runtime_config | tojson }};
+        </script>
+        <script src="/static/js/main.js?v={{ v }}"></script>
+        </main>
     </div>
 </body>
 </html>
