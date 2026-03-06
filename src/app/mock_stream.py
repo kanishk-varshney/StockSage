@@ -53,22 +53,6 @@ Performance Badge: IN LINE
 Insight: Performance remains healthy but volatility requires position sizing discipline.
 CHART_DATA: {"labels":["Q1","Q2","Q3","Q4"],"stock":[3.2,4.8,2.4,6.2],"benchmark":[2.5,3.4,2.1,3.5]}
 """,
-    SubStage.ANALYZING_FINANCIAL_HEALTH: """
-Health Status: Healthy
-Revenue Growth Desc: Revenue growth remains resilient | 10.4%
-Profit Growth Desc: Margins are stable with mild expansion | 6.0%
-Debt Desc: Debt ratio remains manageable | 36%
-Cash Desc: Free cash flow supports flexibility | $387.4B
-P/E Ratio: 22.6x
-P/B Ratio: 2.16x
-Forward P/E: 21.2x
-Revenue Growth Rate: 10.40%
-Earnings Growth Rate: 6.00%
-Growth Signal: Revenue momentum remains constructive.
-Caution Signal: Margin expansion may slow if input costs rise.
-Insight: Fundamentals support a HOLD with selective accumulation on dips.
-Structured Summary: Financial profile is healthy with balanced growth and risk.
-""",
     SubStage.ANALYZING_MARKET_SENTIMENT: """
 Sentiment Signal: Positive
 Analyst Consensus: Buy 3 | Hold 1 | Sell 0 (4 analysts)
@@ -107,8 +91,8 @@ Company Name: {company_name}
 Ticker: {ticker}
 Sector: Technology
 Segment: Large Cap
-Price (USD): $198.50
-Market Cap: $4.0T
+Price: {cur}{price}
+Market Cap: {cur}{mcap}
 Cap Size: Very Large Cap
 Structured Summary: The business is fundamentally healthy, but valuation leaves limited margin of safety at current levels.
 Strength: Strong free-cash-flow generation supports buybacks and dividends
@@ -117,19 +101,50 @@ Risk: Premium valuation leaves little margin of safety in a downturn
 Risk: Geopolitical supply-chain exposure could pressure margins
 Best Suited For: Long-term growth investors comfortable with moderate volatility
 Best Suited For: Dividend-growth portfolio allocations
+Not Ideal For: Short-term traders expecting quick gains
+Not Ideal For: Risk-averse investors seeking guaranteed returns
 Guidance For Existing Holders: Keep core holdings; avoid aggressive averaging at current levels.
 Guidance For New Buyers: Wait for improved risk-reward or stronger earnings acceleration before adding.
 """
+
+_HEALTH_TEMPLATE = """
+Health Status: Healthy
+Revenue Growth Desc: Revenue growth remains resilient | 10.4%
+Profit Growth Desc: Margins are stable with mild expansion | 6.0%
+Debt Desc: Debt ratio remains manageable | 36%
+Cash Desc: Free cash flow supports flexibility | {cur}387.4B
+P/E Ratio: 22.6x
+P/B Ratio: 2.16x
+Forward P/E: 21.2x
+Revenue Growth Rate: 10.40%
+Earnings Growth Rate: 6.00%
+Growth Signal: Revenue momentum remains constructive.
+Caution Signal: Margin expansion may slow if input costs rise.
+Insight: Fundamentals support a HOLD with selective accumulation on dips.
+Structured Summary: Financial profile is healthy with balanced growth and risk.
+"""
+
+
+def _currency_prefix(symbol: str) -> str:
+    s = symbol.upper()
+    if s.endswith(".NS") or s.endswith(".BO"):
+        return "\u20b9"
+    return "$"
 
 
 def _mock_raw_payloads(symbol: str) -> dict[SubStage, str]:
     ticker = symbol.upper() or "AAPL"
     company_name = _MOCK_COMPANY_NAMES.get(ticker, f"{ticker} Corp.")
+    cur = _currency_prefix(ticker)
+    is_indian = cur == "\u20b9"
+    price = "2,485.60" if is_indian else "198.50"
+    mcap = "16.8L Cr" if is_indian else "4.0T"
     payloads = dict(_MOCK_RAW_PAYLOADS_TEMPLATE)
     payloads[SubStage.REVIEWING_ANALYSIS] = _REVIEW_TEMPLATE.format(ticker=ticker)
     payloads[SubStage.GENERATING_INVESTMENT_REPORT] = _REPORT_TEMPLATE.format(
-        ticker=ticker, company_name=company_name
+        ticker=ticker, company_name=company_name, cur=cur, price=price, mcap=mcap
     )
+    payloads[SubStage.ANALYZING_FINANCIAL_HEALTH] = _HEALTH_TEMPLATE.format(cur=cur)
     return payloads
 
 

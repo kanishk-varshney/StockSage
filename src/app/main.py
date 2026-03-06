@@ -137,11 +137,10 @@ async def stream_symbol_logs(request: Request, symbol: str):
 
 
 @app.get("/stream/mock")
-async def stream_mock_symbol_logs(request: Request, symbol: str, delay_ms: int = 500):
-    """Mock stream endpoint for fast frontend/UI iteration."""
-    cached = _load_stream_cache(symbol)
+async def stream_mock_symbol_logs(request: Request, symbol: str, delay_ms: int = 100):
+    """Mock stream endpoint for fast frontend/UI iteration — never uses cache in dev."""
     return StreamingResponse(
-        stream_mock_logs(symbol, cached_messages=cached, delay_ms=delay_ms),
+        stream_mock_logs(symbol, cached_messages=None, delay_ms=delay_ms),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache, no-transform",

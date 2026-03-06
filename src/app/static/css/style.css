@@ -25,9 +25,13 @@ body {
 }
 
 #logs {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+#logs > .empty-state,
+#logs > .log-analysis:not([data-section="valuation"]):not([data-section="performance"]) {
+    grid-column: 1 / -1;
 }
 
 /* Processing section — groups progress bar + workspace */

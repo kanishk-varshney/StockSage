@@ -61,54 +61,6 @@ function reorderAnalysisCards() {
     sorted.forEach(item => logsDiv.appendChild(item.card));
 }
 
-function initPerformanceChart() {
-    const container = document.getElementById('perf-chart-container');
-    if (!container) return;
-    const chartData = container.getAttribute('data-chart');
-    if (!chartData) return;
-
-    const canvas = document.getElementById('perf-chart');
-    if (!canvas) return;
-    const existing = Chart.getChart(canvas);
-    if (existing) return;
-
-    let data;
-    try {
-        data = JSON.parse(chartData);
-    } catch (_) {
-        return;
-    }
-
-    new Chart(canvas, {
-        type: 'bar',
-        data: {
-            labels: data.labels || [],
-            datasets: [
-                { label: 'Stock Performance', data: data.stock || [], backgroundColor: '#22c55e', borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.7 },
-                { label: 'Market Benchmark', data: data.benchmark || [], backgroundColor: '#60a5fa', borderRadius: 3, barPercentage: 0.6, categoryPercentage: 0.7 },
-            ],
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: function(ctx) {
-                            return `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}%`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#9ca3af' } },
-                y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 }, color: '#9ca3af', callback: function(v) { return `${v}%`; } } },
-            },
-        },
-    });
-}
-
 function updateGlobalVerdictBadge() {
     const badge = document.getElementById('global-verdict-badge');
     let verdict = '';
@@ -297,7 +249,6 @@ function appendIncomingHtml(logsDiv, html, analysisStep) {
         logsDiv.insertAdjacentHTML('beforeend', wrapper.innerHTML);
         reorderAnalysisCards();
         updateGlobalVerdictBadge();
-        initPerformanceChart();
     }
     logsDiv.scrollTop = logsDiv.scrollHeight;
 }
@@ -353,7 +304,6 @@ function startProcessing(event) {
         logsDiv.querySelectorAll('.log-analysis').forEach(c => c.style.display = '');
         reorderAnalysisCards();
         updateGlobalVerdictBadge();
-        initPerformanceChart();
         setConnectionStatus(logsDiv, e.data || 'Analysis failed due to a server error.');
     });
 
@@ -367,6 +317,5 @@ function startProcessing(event) {
         reorderAnalysisCards();
         logsDiv.querySelectorAll('.log-analysis').forEach(c => c.style.display = '');
         updateGlobalVerdictBadge();
-        initPerformanceChart();
     });
 }
