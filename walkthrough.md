@@ -1,27 +1,79 @@
-# StockSage Walkthrough: Fast UI Iteration + Production Safety
-
-This guide is the single source of truth for how to iterate quickly on UI/UX in dev mode without waiting 5-10 minutes for full model analysis, while keeping production behavior safe and unchanged.
+# StockSage Walkthrough
 
 ---
 
-## 1) Runtime Modes and Guarantees
+## 1) Deployment
 
-- `STOCKSAGE_APP_MODE=dev`
-  - Analyze uses fast stream mode (mock by default).
-  - Downloading/progress steps are still shown end-to-end.
-  - Uses cached previous run output for the same symbol when available.
-- `STOCKSAGE_APP_MODE=prod` (or unset/invalid)
-  - Analyze uses the real pipeline (`/stream`).
-  - Full download + analysis + model calls run as normal.
+### Hosting (where the FastAPI app runs)
 
-Important guarantees:
-- If `STOCKSAGE_APP_MODE` is missing, empty, or invalid, app defaults to `prod`.
-- UI templates/CSS/JS rendering path is shared between dev and prod.
-- Dev mode changes only the stream source/speed, not UI structure.
+StockSage needs a **persistent container** — not serverless — because analyses take 2-5 minutes with SSE streaming.
+
+| Platform | Cost | Why |
+|----------|------|-----|
+| **Railway** | $5/mo | Best value. Persistent Docker containers, GitHub deploy, $5 compute included. |
+| **Render** | $7/mo (Starter) | Good alternative. Free tier sleeps after 15 min. |
+| **Fly.io** | ~$3-5/mo | Competitive, slightly more setup. |
+
+**Do NOT use:** Vercel (serverless, 10-60s timeouts — won't work), Koyeb free tier (sleeps).
+
+### Deploy to Railway
+
+1. Push repo to GitHub.
+2. Create a Railway project, connect GitHub repo.
+3. Railway auto-detects the `Dockerfile`.
+4. Set env vars in Railway dashboard (see section below).
+5. Deploy. Railway assigns a public URL.
+
+### LLM Model (which AI powers the agents)
+
+Set via `LLM_MODEL` env var. The app uses LiteLLM — switching providers is just changing this string.
+
+**Recommended for deployed use:**
+```
+LLM_MODEL=deepseek/deepseek-chat
+LLM_FALLBACK_MODEL=gemini/gemini-2.5-flash
+DEEPSEEK_API_KEY=your_key
+GEMINI_API_KEY=your_key
+```
+- DeepSeek: ~$0.01-0.05 per full analysis. No throttling. Get key at https://platform.deepseek.com
+- Gemini Flash: free tier fallback (10 RPM, 250 req/day). Get key at https://aistudio.google.com
+
+**Free-only (zero cost):**
+```
+LLM_MODEL=gemini/gemini-2.5-flash
+LLM_FALLBACK_MODEL=groq/llama-3.3-70b-versatile
+GEMINI_API_KEY=your_key
+GROQ_API_KEY=your_key
+```
+- Gemini: 5-8 analyses/day max due to rate limits.
+- Groq: very fast but tight token limits. Get key at https://console.groq.com
+
+**Local dev (Ollama, no cost, no API key):**
+```
+LLM_MODEL=ollama/qwen2.5:14b-instruct
+```
+Requires Ollama running locally. Won't work on cloud deployments.
+
+### Required env vars for deployment
+
+```
+LLM_MODEL=deepseek/deepseek-chat
+LLM_FALLBACK_MODEL=gemini/gemini-2.5-flash
+DEEPSEEK_API_KEY=...
+GEMINI_API_KEY=...
+SERPER_API_KEY=...
+OTEL_SDK_DISABLED=true
+STOCKSAGE_APP_MODE=prod
+```
 
 ---
 
-## 2) End-to-End Flow
+## 2) Runtime Modes
+
+- `STOCKSAGE_APP_MODE=prod` (default): full pipeline via `/stream`.
+- `STOCKSAGE_APP_MODE=dev`: fast iteration via `/stream/mock`.
+
+If `STOCKSAGE_APP_MODE` is missing or invalid, defaults to `prod`.
 
 ```mermaid
 flowchart LR
@@ -30,146 +82,91 @@ runtimeConfig -->|prod| liveEndpoint[/stream]
 runtimeConfig -->|dev+mock| mockEndpoint[/stream/mock]
 liveEndpoint --> sseFrames[SSE data frames]
 mockEndpoint --> sseFrames
-sseFrames --> formatterHTML[format_log_entry HTML blocks]
-formatterHTML --> sharedFrontendRender[shared main.js render pipeline]
+sseFrames --> formatterHTML[format_log_entry HTML]
+formatterHTML --> sharedFrontendRender[main.js render pipeline]
 sharedFrontendRender --> uiCards[Cards Progress Verdict]
 ```
 
 ---
 
-## 3) File Map (What to Edit for UI Work)
+## 3) File Map
 
-- UI shell and structure: `src/app/templates/index.html`
-- UI styles: `src/app/static/css/style.css`
-- SSE render behavior/progress/card ordering: `src/app/static/js/main.js`
-- Card HTML generation and card internals: `src/app/utils/formatters.py`
-- Runtime mode + mock/live endpoints: `src/app/main.py`
-- Environment mode settings: `src/core/config/config.py`
+- UI shell: `src/app/templates/index.html`
+- Styles: `src/app/static/css/style.css`
+- SSE render / progress: `src/app/static/js/main.js`
+- Card HTML generation: `src/app/utils/formatters.py`
+- Endpoints: `src/app/main.py`
+- Config: `src/core/config/config.py`
+- LLM factory: `src/core/config/llm.py`
 
-If you are changing look-and-feel, you usually only need:
-- `index.html`
-- `style.css`
-- `formatters.py`
-- sometimes `main.js` for ordering/progress behaviors
+For look-and-feel changes, you usually only need: `index.html`, `style.css`, `formatters.py`.
 
 ---
 
-## 4) Fast Dev Iteration (No UI Debug Controls)
+## 4) Fast Dev Iteration
 
-### A) .env setup
+### Setup
 
 In `.env`:
-
-```bash
+```
 STOCKSAGE_APP_MODE=dev
 STOCKSAGE_DEV_STREAM_MODE=mock
 ```
 
-Notes:
-- `STOCKSAGE_DEV_STREAM_MODE` supports `mock` and `live`.
-- In `dev+mock`, UI updates appear quickly and still show realistic staged logs.
-
-### B) How mock stream works
+### How mock stream works
 
 - Endpoint: `/stream/mock`
-- It first tries to load cached previous stream output for symbol from:
-  - `.market_data/<SYMBOL>/.ui_stream_cache.json`
-- If cache exists:
-  - Replays cached frames quickly (full step sequence visible).
-- If cache does not exist:
-  - Falls back to deterministic mock payloads with full stage flow.
+- First tries cached previous run output: `.market_data/<SYMBOL>/.ui_stream_cache.json`
+- If cache exists: replays frames quickly.
+- If no cache: falls back to deterministic mock payloads.
 
-### C) How cache gets created
+### Cache creation
 
-- Every successful real run through `/stream` stores stream HTML frames in:
-  - `.market_data/<SYMBOL>/.ui_stream_cache.json`
-- That cache is reused in dev mock mode for fast iteration.
+Every successful real run through `/stream` stores HTML frames in `.market_data/<SYMBOL>/.ui_stream_cache.json`. That cache is reused in dev mock mode.
 
----
-
-## 5) 2-Minute UI Iteration Loop
+### 2-minute iteration loop
 
 1. Set `.env` to dev mock mode.
-2. Start app normally.
-3. Run one symbol (e.g., `AAPL`) and review UI immediately (seconds).
-4. Edit UI files (`formatters.py`, `style.css`, `index.html`).
-5. Refresh and rerun same symbol.
-6. Repeat until layout and UX are correct.
-
-When ready for real behavior:
-1. Set `.env` to production:
-   - `STOCKSAGE_APP_MODE=prod`
-2. Restart app.
-3. Run full real analysis to validate final end-to-end behavior.
+2. Start app.
+3. Run a symbol (e.g. `AAPL`) — renders in seconds.
+4. Edit UI files.
+5. Refresh and rerun.
+6. When ready: set `STOCKSAGE_APP_MODE=prod`, restart, run real analysis.
 
 ---
 
-## 6) Production Validation Checklist
+## 5) Agentic Output Iteration
 
-- `.env` does not set `STOCKSAGE_APP_MODE=dev`.
-- Runtime config in browser resolves to `streamMode: live`.
-- Analyze requests go to `/stream` (not `/stream/mock`).
-- Full download and model analysis run end-to-end.
-- UI output matches dev-validated styling and structure.
+Use when refining agent prompts and structured outputs:
+
+1. Run crew smoke test: `python tests/test_crew.py`
+2. Check per-task output in console (agent name + output keys).
+3. Fix prompt/schema mismatches before UI formatting changes.
+4. Keep one symbol constant (e.g. `AAPL`) for comparable runs.
+5. Set `CREW_VERBOSE=true` in `.env` to see full agent reasoning.
+
+---
+
+## 6) Production Checklist
+
+- `STOCKSAGE_APP_MODE=prod` (or unset).
+- `LLM_MODEL` and API key set for chosen provider.
+- `SERPER_API_KEY` set for live news search.
+- Browser requests go to `/stream` (not `/stream/mock`).
+- Full download + analysis runs end-to-end.
 
 ---
 
 ## 7) Troubleshooting
 
-### Dev mode still feels slow
-- Check `.env` has:
-  - `STOCKSAGE_APP_MODE=dev`
-  - `STOCKSAGE_DEV_STREAM_MODE=mock`
-- Restart app after env changes.
-- Confirm browser request is `/stream/mock`.
+**App sleeping on cloud:** You're on a free tier that scales to zero. Upgrade to paid (Railway $5/mo, Render $7/mo).
 
-### Mock mode not using previous symbol run
-- Check cache file exists:
-  - `.market_data/<SYMBOL>/.ui_stream_cache.json`
-- If missing, run one real analysis once in prod/live mode to seed cache.
+**Rate limit / timeout errors:** Switch from OpenAI to DeepSeek or Gemini. Set `LLM_MODEL=deepseek/deepseek-chat` and add `DEEPSEEK_API_KEY`.
 
-### UI mismatch between dev and prod
-- Ensure UI edits are only in shared files (`index.html`, `style.css`, `formatters.py`, `main.js`).
-- Ensure no dev-only branch modifies HTML structure.
+**Ollama not found on cloud:** Ollama is local-only. Cloud deployments must use an API provider (DeepSeek, Gemini, Groq, OpenAI).
 
-### Progress appears stuck
-- Check SSE stream request remains open.
-- Confirm stream frames continue arriving.
-- Verify analysis step labels are still matched by `main.js`.
+**Dev mode feels slow:** Check `.env` has `STOCKSAGE_APP_MODE=dev` and `STOCKSAGE_DEV_STREAM_MODE=mock`. Restart after changes.
 
----
+**Mock mode not using previous run:** Check `.market_data/<SYMBOL>/.ui_stream_cache.json` exists. Run one real analysis in prod mode to seed it.
 
-## 8) Recommended Working Rules
-
-- Keep all debug/fast mode controls out of visible UI.
-- Keep mode switching exclusively via `.env`.
-- Keep card rendering deterministic in `formatters.py`.
-- Keep polarity rules strict:
-  - Green = positive
-  - Red = negative
-  - Yellow = caution/watchout
-
-This setup is designed specifically for fast UI/UX iteration now, with safe promotion to real production behavior by only changing env mode.
-
----
-
-## 9) Agentic Output Iteration Loop (Crew + Schemas)
-
-Use this loop when refining agent/task prompts and structured outputs before pipeline/UI integration.
-
-1. Run local crew smoke test:
-   - `./.venv/bin/python test_crew.py`
-2. Confirm task order and progress in console:
-   - `START/DONE` lines show per-task run order.
-   - ETA hints are shown after the first completed task.
-3. Validate structured output parsing:
-   - Ensure each task prints schema-aligned JSON under `TASK OUTPUTS`.
-   - Fix prompt/schema mismatches first (before UI formatting changes).
-4. Re-run after each small prompt/schema update.
-5. Only after stable schema output, move to UI formatting iteration.
-
-Tracing notes:
-- Crew tracing is enabled in `src/crew/crew.py` (`tracing=True`).
-- Inspect traces via your configured CrewAI tracing backend/viewer in your local environment.
-- Keep one symbol constant (for example `AAPL`) during prompt/schema iteration for comparable runs.
-
+**Progress stuck:** Check SSE stream stays open. Confirm analysis step labels match `main.js`.

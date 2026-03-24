@@ -45,11 +45,11 @@ async def index(request: Request):
         },
     }
     cache_bust = int(time.time()) if APP_MODE == "dev" else ""
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "runtime_config": runtime_config,
-        "v": cache_bust,
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={"runtime_config": runtime_config, "v": cache_bust},
+    )
 
 
 SSE_RETRY_MS = 3000
