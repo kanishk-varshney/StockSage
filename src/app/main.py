@@ -104,7 +104,7 @@ async def stream_logs(symbol: str):
             cached_messages.append(log_html)
 
             if log_entry.stage == ProcessingStage.COMPLETE and log_entry.status_type == StatusType.FAILED:
-                yield _sse_data(log_html, event="stream_error")
+                yield f"event: stream_error\ndata: {log_entry.message or 'Analysis failed'}\n\n"
                 error_occurred = True
                 break
 
