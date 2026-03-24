@@ -5,7 +5,6 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load local .env (if present) so API keys like SERPER_API_KEY work
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(_PROJECT_ROOT / ".env")
 
@@ -19,70 +18,50 @@ OUTPUT_DIR_PATH = (_PROJECT_ROOT / DEFAULT_OUTPUT_DIR).resolve()
 # LiteLLM handles provider routing, auth, and API differences automatically.
 # Docs: https://docs.litellm.ai/docs/providers
 #
-# To switch models, change LLM_MODEL below — nothing else needed.
+# To switch models, set LLM_MODEL env var — nothing else needed.
 # API keys are read from environment variables automatically by LiteLLM.
 
-LLM_MODEL = os.getenv("LLM_MODEL", "ollama/qwen2.5:14b-instruct")
-LLM_FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", "openai/gpt-4o-mini")
+LLM_MODEL = os.getenv("LLM_MODEL", "deepseek/deepseek-chat")
+LLM_FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", "gemini/gemini-2.5-flash")
 
-# ── Alternative models (uncomment one to switch) ──────────
+# ── Model options (set LLM_MODEL env var to one of these) ──
 #
-# Ollama (local, free, no API key needed):
-# LLM_MODEL = "ollama/llama3.1:8b"            # Default — good general purpose
-# LLM_MODEL = "ollama/qwen2.5:7b"             # Strong at structured analysis
-# LLM_MODEL = "ollama/mistral:7b"             # Fast, decent reasoning
-# LLM_MODEL = "ollama/deepseek-r1:8b"         # Strong at math/finance
-# LLM_MODEL = "ollama/gemma2:9b"              # Google's open model
-# LLM_MODEL = "ollama/llama3.1:70b"           # Best local quality (needs ~40GB RAM)
+# Recommended for deployed use (cheap, no throttling):
+#   deepseek/deepseek-chat          ~$0.01-0.05 per analysis, needs DEEPSEEK_API_KEY
 #
-# OpenAI (needs OPENAI_API_KEY env var):
-# LLM_MODEL = "openai/gpt-4o-mini"            # Cheap, fast, good enough
-# LLM_MODEL = "openai/gpt-4o"                 # Best quality, higher cost
-# LLM_MODEL = "openai/o1-mini"                # Reasoning-focused
+# Free tier options:
+#   gemini/gemini-2.5-flash         Free (10 RPM, 250 RPD), needs GEMINI_API_KEY
+#   groq/llama-3.3-70b-versatile    Free (tight TPM limits), needs GROQ_API_KEY
 #
-# Anthropic (needs ANTHROPIC_API_KEY env var):
-# LLM_MODEL = "anthropic/claude-sonnet-4-20250514"
-# LLM_MODEL = "anthropic/claude-3-5-haiku-20241022"   # Fast, cheaper
+# Local (dev only, no API key, needs Ollama running):
+#   ollama/qwen2.5:14b-instruct     Best local quality for structured output
+#   ollama/llama3.1:8b              Good general purpose
+#   ollama/deepseek-r1:8b           Strong at math/finance
 #
-# Google Gemini (needs GEMINI_API_KEY env var):
-# LLM_MODEL = "gemini/gemini-2.0-flash"       # Fast, good quality
-# LLM_MODEL = "gemini/gemini-2.5-pro"         # Best Gemini quality
-#
-# Groq (needs GROQ_API_KEY env var — very fast inference):
-# LLM_MODEL = "groq/llama-3.1-70b-versatile"
-# LLM_MODEL = "groq/mixtral-8x7b-32768"
+# Premium (higher cost):
+#   openai/gpt-4o-mini              ~$0.15/$0.60 per M tokens, needs OPENAI_API_KEY
+#   openai/gpt-4o                   Best OpenAI quality, expensive
+#   anthropic/claude-sonnet-4-20250514   Needs ANTHROPIC_API_KEY
+#   gemini/gemini-2.5-pro           Best Gemini quality
 
 # ── LLM Parameters ────────────────────────────────────────
-LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.2"))  # Low for factual analysis
-LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "4096"))     # Max response length per agent
-LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "300"))            # Seconds — local/remote model may cold start
+LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.2"))
+LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "4096"))
+LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "300"))
 
 # ── Ollama-specific settings ──────────────────────────────
-# Only relevant when using an ollama/ model.
+# Only relevant when using an ollama/ model (local dev).
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-# OLLAMA_BASE_URL = "http://192.168.1.100:11434"  # Remote Ollama server
-OLLAMA_NUM_CTX = int(os.getenv("OLLAMA_NUM_CTX", "16384"))    # Context window size
-
-# ── API Keys ──────────────────────────────────────────────
-# Set as environment variables (LiteLLM auto-detects them):
-#   OPENAI_API_KEY=sk-...
-#   ANTHROPIC_API_KEY=sk-ant-...
-#   GEMINI_API_KEY=...
-#   GROQ_API_KEY=gsk_...
-#   SERPER_API_KEY=...        (for live news search via SerperDevTool)
-#
-# Ollama requires no API key — runs locally.
+OLLAMA_NUM_CTX = int(os.getenv("OLLAMA_NUM_CTX", "16384"))
 
 # ── Crew settings ─────────────────────────────────────────
 CREW_VERBOSE = os.getenv("CREW_VERBOSE", "false").strip().lower() == "true"
 
 # ── App runtime mode (UI iteration) ────────────────────────
-# Defaults to production behavior when not set.
 APP_MODE = (os.getenv("STOCKSAGE_APP_MODE", "prod") or "prod").strip().lower()
 if APP_MODE not in {"dev", "prod"}:
     APP_MODE = "prod"
 
-# In dev mode, route UI analyze flow to either live or mock stream.
 DEV_STREAM_MODE = (os.getenv("STOCKSAGE_DEV_STREAM_MODE", "mock") or "mock").strip().lower()
 if DEV_STREAM_MODE not in {"live", "mock"}:
     DEV_STREAM_MODE = "mock"

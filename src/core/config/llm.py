@@ -1,14 +1,12 @@
 """LLM factory — builds a CrewAI LLM instance using LiteLLM under the hood.
 
-CrewAI's LLM class delegates to LiteLLM for provider routing, auth,
-retries, and API normalization. This module reads the model config and
-returns a ready-to-use LLM instance.
-
-Switching providers requires only changing LLM_MODEL in config.py.
+Switching providers requires only changing the LLM_MODEL env var.
+If the primary model is an Ollama model and the Ollama endpoint is
+unreachable, falls back to LLM_FALLBACK_MODEL automatically.
 """
 
-import logging
 import json
+import logging
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -26,60 +24,43 @@ from src.core.config.config import (
 )
 
 litellm.suppress_debug_info = True
-# LiteLLM's internal logging tries to import its proxy server module
-# (apscheduler, email-validator, fastapi-sso, etc.) on every call.
-# These are non-functional errors from a code path we don't use.
-# Real LLM errors raise exceptions caught by the pipeline.
 logging.getLogger("LiteLLM").setLevel(logging.CRITICAL)
 logging.getLogger("litellm").setLevel(logging.CRITICAL)
+
+_log = logging.getLogger(__name__)
 
 
 def _is_ollama_model(model: str) -> bool:
     return model.startswith("ollama/") or model.startswith("ollama_chat/")
 
 
-def _normalized_base_url(base_url: str) -> str:
-    return base_url.rstrip("/")
-
-
-def _extract_ollama_model_name(model: str) -> str:
-    return model.split("/", 1)[1].strip() if "/" in model else ""
-
-
-def _ollama_ready_for_model(base_url: str, model: str) -> bool:
-    """Check Ollama endpoint health and whether requested model is available."""
-    tags_url = f"{_normalized_base_url(base_url)}/api/tags"
-    request = Request(tags_url, method="GET")
-    requested_model_name = _extract_ollama_model_name(model)
+def _ollama_reachable(base_url: str, model: str) -> bool:
+    """Check if Ollama is running and has the requested model pulled."""
+    tags_url = f"{base_url.rstrip('/')}/api/tags"
+    model_name = model.split("/", 1)[1].strip() if "/" in model else ""
+    if not model_name:
+        return False
     try:
-        with urlopen(request, timeout=3) as response:
-            if not (200 <= response.status < 300):
+        with urlopen(Request(tags_url, method="GET"), timeout=3) as resp:
+            if not (200 <= resp.status < 300):
                 return False
-            payload = json.loads(response.read().decode("utf-8"))
-            available_models = {
+            payload = json.loads(resp.read().decode("utf-8"))
+            available = {
                 item.get("name", "").strip()
                 for item in payload.get("models", [])
                 if isinstance(item, dict)
             }
-            if not requested_model_name:
-                return False
-            return requested_model_name in available_models
+            return model_name in available
     except (URLError, TimeoutError, ValueError):
         return False
 
 
-def _has_model_name(model: str) -> bool:
-    provider_and_name = model.split("/", 1)
-    return len(provider_and_name) == 2 and bool(provider_and_name[1].strip())
-
-
 def _resolve_model() -> str:
-    """Choose primary model, with fallback if Ollama endpoint is unavailable."""
-    if _is_ollama_model(LLM_MODEL) and not _ollama_ready_for_model(OLLAMA_BASE_URL, LLM_MODEL):
+    """Return the active model string, falling back if Ollama is unavailable."""
+    if _is_ollama_model(LLM_MODEL) and not _ollama_reachable(OLLAMA_BASE_URL, LLM_MODEL):
         if LLM_FALLBACK_MODEL:
-            logging.getLogger(__name__).warning(
-                "Ollama endpoint/model not ready (%s, model=%s). Falling back to %s.",
-                OLLAMA_BASE_URL,
+            _log.warning(
+                "Ollama not ready (%s). Falling back to %s.",
                 LLM_MODEL,
                 LLM_FALLBACK_MODEL,
             )
@@ -90,6 +71,12 @@ def _resolve_model() -> str:
 def get_llm() -> LLM:
     """Build a CrewAI LLM from config. LiteLLM handles provider routing."""
     active_model = _resolve_model()
+
+    if "/" not in active_model or not active_model.split("/", 1)[1].strip():
+        raise ValueError(
+            f"Invalid LLM_MODEL format: '{active_model}'. Expected 'provider/model-name'."
+        )
+
     kwargs: dict = {
         "model": active_model,
         "temperature": LLM_TEMPERATURE,
@@ -100,10 +87,5 @@ def get_llm() -> LLM:
     if _is_ollama_model(active_model):
         kwargs["base_url"] = OLLAMA_BASE_URL
         kwargs["num_ctx"] = OLLAMA_NUM_CTX
-
-    if not _has_model_name(active_model):
-        raise ValueError(
-            f"Invalid LLM model format: '{active_model}'. Expected 'provider/model-name'."
-        )
 
     return LLM(**kwargs)
