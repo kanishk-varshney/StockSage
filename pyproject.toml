@@ -9,7 +9,6 @@ dependencies = [
     "fastapi>=0.128.0",
     "gnews>=0.4.3",
     "jinja2>=3.1.6",
-    "jupyter>=1.1.1",
     "litellm>=1.75.3",
     "numpy>=2.4.1",
     "pandas>=3.0.0",
@@ -22,6 +21,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+notebook = [
+    "jupyter>=1.1.1",
+]
 dev = [
     "pytest>=8.4.0",
 ]

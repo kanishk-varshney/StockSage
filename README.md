@@ -58,12 +58,19 @@ cd StockSage
 uv sync
 ```
 
+Optional Jupyter (not used by the web app):
+
+```bash
+uv sync --extra notebook
+```
+
 If you do not use `uv`:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
+# Optional: pip install -e ".[notebook]"
 ```
 
 ### Environment
@@ -124,6 +131,7 @@ Key settings:
 
 ## Troubleshooting
 
+- **Container `Killed` on Railway (no traceback)**: Linux OOM — raise service memory to **≥1 GB**. The default app image no longer installs Jupyter; if you still see kills at 512 MB, bump RAM further or reduce concurrent analyses.
 - **No analysis output**: check LLM provider setup and credentials.
 - **Missing external sentiment/news context**: verify `SERPER_API_KEY`.
 - **Validation failures**: verify symbol format (`US`: `AAPL`, `IN`: `RELIANCE.NS` or `.BO`).
