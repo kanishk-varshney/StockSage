@@ -2,28 +2,25 @@
 
 import asyncio
 import json
-import sys
+import logging
 import time
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-# Ensure we can import from src.core
-project_root = Path(__file__).parent.parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
-from src.core.processing import StockProcessor
-from src.app.utils.formatters import format_log_entry
 from src.app.mock_stream import stream_mock_logs
+from src.app.utils.formatters import format_log_entry
 from src.core.config.config import APP_MODE, DEV_STREAM_MODE, OUTPUT_DIR_PATH
 from src.core.config.enums import STAGE_REGISTRY, ProcessingStage, StatusType, get_total_pipeline_steps
+from src.core.processing import StockProcessor
 
 app = FastAPI(title="StockSage")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+logger = logging.getLogger(__name__)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
@@ -67,6 +64,14 @@ def _symbol_cache_file(symbol: str) -> Path:
     return OUTPUT_DIR_PATH / symbol.upper() / UI_STREAM_CACHE_FILE
 
 
+def _public_error_message(symbol: str, error: Exception | None = None) -> str:
+    """Return a sanitized user-facing error and log full details server-side."""
+    ref = uuid4().hex[:8]
+    if error is not None:
+        logger.exception("Stream failure for %s (ref=%s)", symbol.upper(), ref, exc_info=error)
+    return f"Analysis failed. Please retry. Reference: {ref}"
+
+
 def _load_stream_cache(symbol: str) -> list[str]:
     cache_file = _symbol_cache_file(symbol)
     if not cache_file.exists():
@@ -104,7 +109,7 @@ async def stream_logs(symbol: str):
             cached_messages.append(log_html)
 
             if log_entry.stage == ProcessingStage.COMPLETE and log_entry.status_type == StatusType.FAILED:
-                yield f"event: stream_error\ndata: {log_entry.message or 'Analysis failed'}\n\n"
+                yield f"event: stream_error\ndata: {_public_error_message(symbol)}\n\n"
                 error_occurred = True
                 break
 
@@ -115,7 +120,7 @@ async def stream_logs(symbol: str):
     except asyncio.CancelledError:
         raise
     except Exception as exc:
-        yield f"event: stream_error\ndata: Analysis failed: {exc}\n\n"
+        yield f"event: stream_error\ndata: {_public_error_message(symbol, exc)}\n\n"
         error_occurred = True
 
     if not error_occurred:

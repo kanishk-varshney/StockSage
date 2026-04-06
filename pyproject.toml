@@ -1,7 +1,7 @@
 [project]
 name = "stocksage"
 version = "0.1.0"
-description = "End-to-End Agentic Stock Analysis"
+description = "Local-first agentic stock analysis with FastAPI + CrewAI"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -12,10 +12,8 @@ dependencies = [
     "litellm>=1.75.3",
     "numpy>=2.4.1",
     "pandas>=3.0.0",
-    "plotly>=6.5.2",
     "python-dotenv>=1.1.1",
     "pytrends>=4.9.2",
-    "urllib3<2",
     "uvicorn>=0.40.0",
     "yfinance>=1.1.0",
 ]
@@ -26,8 +24,17 @@ notebook = [
 ]
 dev = [
     "pytest>=8.4.0",
+    "ruff>=0.9.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501", "E402", "E741", "F401", "F541", "I001", "W293"]

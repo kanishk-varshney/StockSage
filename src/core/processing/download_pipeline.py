@@ -1,7 +1,9 @@
 """Orchestrates the multi-step download sequence for a stock symbol."""
 
+import logging
 import time
 from collections.abc import Generator
+from uuid import uuid4
 
 from src.core.config.enums import ProcessingStage, StatusType, SubStage
 from src.core.config.models import LogEntry
@@ -11,6 +13,8 @@ from src.core.market.news import NewsFetcher
 from src.core.market.stock_data import BenchmarkData, StockData
 from src.core.market.storage import CSVStorage
 from src.core.market.trends import TrendsFetcher
+
+logger = logging.getLogger(__name__)
 
 
 class DownloadPipeline:
@@ -44,6 +48,11 @@ class DownloadPipeline:
             message=message,
             symbol=self.symbol,
         )
+
+    def _safe_failure_message(self, context: str, error: Exception) -> str:
+        ref = uuid4().hex[:8]
+        logger.exception("%s failed for %s (ref=%s)", context, self.symbol, ref, exc_info=error)
+        return f"{context} failed. See server logs (ref: {ref})."
 
     def _company_profile_step(self) -> Generator[LogEntry, None, bool]:
         yield self._log(SubStage.DOWNLOADING_COMPANY_PROFILE, StatusType.IN_PROGRESS)
@@ -125,9 +134,9 @@ class DownloadPipeline:
             saved_files = CSVStorage().save(self.stock_data)
             yield self._log(SubStage.SAVING_DATA, StatusType.SUCCESS, f"{len(saved_files)} files saved to .market_data/{self.symbol}/")
         except (OSError, ValueError, TypeError) as exc:
-            yield self._log(SubStage.SAVING_DATA, StatusType.FAILED, f"Save failed: {exc}")
+            yield self._log(SubStage.SAVING_DATA, StatusType.FAILED, self._safe_failure_message("Save", exc))
         except Exception as exc:
-            yield self._log(SubStage.SAVING_DATA, StatusType.FAILED, f"Save failed: {exc}")
+            yield self._log(SubStage.SAVING_DATA, StatusType.FAILED, self._safe_failure_message("Save", exc))
 
     def run(self) -> Generator[LogEntry, None, StockData | None]:
         """Run the full download sequence and stream log entries.

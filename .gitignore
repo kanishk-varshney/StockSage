@@ -210,3 +210,8 @@ __marimo__/
 .DS_Store
 .crew_debug_runs/
 .crewai_storage/
+.claude/
+.git-backups/
+.uv-tools/
+.uv-cache/
+Untitled

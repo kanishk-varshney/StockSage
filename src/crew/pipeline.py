@@ -1,10 +1,12 @@
 """Analysis pipeline that bridges CrewAI execution with the LogEntry streaming system."""
 
 import asyncio
-from collections.abc import AsyncGenerator
+import logging
 import random
 import re
+from collections.abc import AsyncGenerator
 from typing import Any
+from uuid import uuid4
 
 from src.core.config.enums import ProcessingStage, StatusType, SubStage
 from src.core.config.models import LogEntry
@@ -26,6 +28,7 @@ _TASK_SUBSTAGE_MAP = {
 _RATE_LIMIT_WAIT_RE = re.compile(r"Please try again in ([0-9]+(?:\.[0-9]+)?)s", re.IGNORECASE)
 _MAX_RATE_LIMIT_RETRIES = 3
 _RATE_LIMIT_JITTER_SECONDS = (0.2, 0.8)
+logger = logging.getLogger(__name__)
 
 
 def _extract_retry_wait(error: Exception) -> float:
@@ -60,6 +63,11 @@ class AnalysisPipeline:
             message=message,
             symbol=self.symbol,
         )
+
+    def _safe_failure_message(self, error: Exception) -> str:
+        ref = uuid4().hex[:8]
+        logger.exception("Analysis failed for %s (ref=%s)", self.symbol, ref, exc_info=error)
+        return f"Analysis failed. See server logs (ref: {ref})."
 
     def _build_success_text(
         self, task_name: str, task_output: Any, deterministic_facts: dict[str, str]
@@ -193,5 +201,5 @@ class AnalysisPipeline:
             self.success = True
 
         except Exception as exc:
-            yield self._log(None, StatusType.FAILED, f"Analysis failed: {exc}")
+            yield self._log(None, StatusType.FAILED, self._safe_failure_message(exc))
             self.success = False
