@@ -1,0 +1,241 @@
+/* StockSage — custom styling for wireframe parity */
+
+/* Safety net — ensures hidden works before Tailwind CDN loads */
+.hidden { display: none !important; }
+
+body {
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    background: #f2f5f9;
+}
+
+.app-shell {
+    width: 100%;
+    max-width: 1360px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.log-entry { animation: fadeIn 0.3s ease-in; }
+.log-analysis {
+    animation: fadeIn 0.4s ease-in;
+    border-radius: 12px;
+}
+
+#logs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+#logs > .empty-state,
+#logs > .log-analysis:not([data-section="valuation"]):not([data-section="performance"]) {
+    grid-column: 1 / -1;
+}
+
+/* Processing section — groups progress bar + workspace */
+#processing-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Workspace card */
+#workspace-card {
+    background: #fff;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px 0 rgba(0,0,0,0.06);
+    border: 1px solid #e5e7eb;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+}
+#workspace-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 10px 0;
+}
+#workspace-logs {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+/* Workspace entry — single log line */
+.workspace-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 13.5px;
+    line-height: 20px;
+    color: #374151;
+    animation: fadeIn 0.15s ease-in;
+}
+.workspace-entry .ws-icon {
+    width: 16px;
+    text-align: center;
+    flex-shrink: 0;
+    font-size: 13px;
+    color: #9ca3af;
+}
+.workspace-entry .ws-text {
+    transition: color 0.35s ease;
+}
+
+/* Active = currently processing (blue text + spinner) */
+.workspace-entry.ws-active {
+    color: #3b82f6;
+    font-size: 14.5px;
+}
+.workspace-entry.ws-active .ws-text {
+    color: #3b82f6;
+}
+
+/* Done = completed successfully (green text + checkmark) */
+.workspace-entry.ws-done {
+    color: #16a34a;
+}
+.workspace-entry.ws-done .ws-icon {
+    color: #22c55e;
+}
+
+/* Failed = error (red text + cross) */
+.workspace-entry[data-status="failed"] {
+    color: #ef4444;
+}
+.workspace-entry[data-status="failed"] .ws-icon {
+    color: #ef4444;
+}
+
+/* Spinner for active workspace entries */
+.ws-spinner {
+    font-size: 13px;
+    color: #3b82f6;
+}
+
+.ws-detail {
+    color: #9ca3af;
+    font-size: 12px;
+}
+
+/* Tiny pulsing dot (progress bar card) */
+.processing-dot-sm {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #4f46e5;
+    animation: processingPulse 0.9s ease-out infinite;
+}
+
+.todo-missing {
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #b45309;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+
+/* Legacy progress items (no longer emitted) */
+.log-progress-item,
+.log-stage-progress {
+    display: none;
+}
+
+.processing-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.processing-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 9999px;
+    background: #7c3aed;
+    box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.55);
+    animation: processingPulse 0.9s ease-out infinite;
+}
+
+@keyframes processingPulse {
+    0% { transform: scale(0.85); box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.55); }
+    50% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(124, 58, 237, 0.2); }
+    100% { transform: scale(0.85); box-shadow: 0 0 0 12px rgba(124, 58, 237, 0); }
+}
+
+/* Tooltip for help icons */
+.help-icon-wrapper {
+    display: inline-block;
+    position: relative;
+}
+.help-icon-wrapper::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.5rem 0.75rem;
+    background: #1e293b;
+    color: #fff;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    white-space: normal;
+    width: max-content;
+    max-width: 280px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    z-index: 50;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+    font-weight: normal;
+}
+.help-icon-wrapper:hover::after,
+.help-icon-wrapper:focus-within::after {
+    opacity: 1;
+    visibility: visible;
+}
+.help-icon-wrapper::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #1e293b;
+    z-index: 51;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+}
+.help-icon-wrapper:hover::before,
+.help-icon-wrapper:focus-within::before {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Details/summary toggle text */
+details .details-hide { display: none; }
+details .details-show { display: inline; }
+details[open] .details-hide { display: inline; }
+details[open] .details-show { display: none; }
+
+details > summary {
+    list-style: none;
+}
+details > summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Chart container sizing */
+#perf-chart-container {
+    position: relative;
+    width: 100%;
+}

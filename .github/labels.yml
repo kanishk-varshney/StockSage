@@ -1,0 +1,70 @@
+# Synced by .github/workflows/labels.yml
+# Run: gh label sync --labels .github/labels.yml
+
+- name: "bug"
+  color: "d73a4a"
+  description: "Something isn't working"
+
+- name: "enhancement"
+  color: "a2eeef"
+  description: "New feature or request"
+
+- name: "documentation"
+  color: "0075ca"
+  description: "Improvements or additions to documentation"
+
+- name: "good first issue"
+  color: "7057ff"
+  description: "Good for newcomers"
+
+- name: "help wanted"
+  color: "008672"
+  description: "Extra attention is needed"
+
+- name: "question"
+  color: "d876e3"
+  description: "Further information is requested"
+
+- name: "needs triage"
+  color: "e4e669"
+  description: "Needs maintainer review and labeling"
+
+- name: "dependencies"
+  color: "0366d6"
+  description: "Dependency update (Dependabot)"
+
+- name: "provider: ollama"
+  color: "f9d0c4"
+  description: "Related to Ollama local model support"
+
+- name: "provider: openai"
+  color: "bfd4f2"
+  description: "Related to OpenAI provider"
+
+- name: "provider: gemini"
+  color: "c5def5"
+  description: "Related to Google Gemini provider"
+
+- name: "provider: deepseek"
+  color: "fef2c0"
+  description: "Related to DeepSeek provider"
+
+- name: "ui"
+  color: "e99695"
+  description: "Frontend / UI changes"
+
+- name: "agents"
+  color: "b60205"
+  description: "CrewAI agent or task logic"
+
+- name: "performance"
+  color: "0e8a16"
+  description: "Performance improvement"
+
+- name: "wontfix"
+  color: "ffffff"
+  description: "This will not be worked on"
+
+- name: "duplicate"
+  color: "cfd3d7"
+  description: "This issue or PR already exists"

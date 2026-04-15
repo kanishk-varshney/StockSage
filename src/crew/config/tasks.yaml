@@ -1,0 +1,450 @@
+validate_data_sanity:
+  description: >
+    Validate financial data quality and model applicability for {symbol}.
+
+    STEP 1 — FILE AVAILABILITY:
+    Use the csv_reader tool to attempt loading each of these files for {symbol}:
+      company_info.csv, historical_prices.csv, income_statement.csv, balance_sheet.csv,
+      cash_flow.csv, recommendations.csv, institutional_holders.csv, market_index.csv,
+      sector_index.csv, news.csv, quarterly_income_statement.csv.
+    For each file, record: parseable (yes/no), row count, whether critical columns exist.
+
+    STEP 2 — MARKET CONTEXT:
+    From company_info.csv, determine market context as exactly one of: US or India.
+    Classify company_type as exactly one of: Bank, Financial, Non-Financial.
+
+    STEP 3 — RATIO APPLICABILITY (assign one status each):
+      PE Ratio          → check: company_info.csv.trailingEps > 0
+      Forward PE        → check: company_info.csv.forwardPE present and > 0
+      P/B Ratio         → check: company_info.csv.bookValue > 0
+      P/S Ratio         → check: company_info.csv.revenuePerShare > 0
+      EV/EBITDA         → check: company_info.csv.enterpriseValue > 0 AND company_info.csv.ebitda > 0
+      PEG Ratio         → check: company_info.csv.trailingPE > 0 AND company_info.csv.earningsGrowth != 0
+      ROE               → check: income_statement.csv has "Net Income", balance_sheet.csv has "Stockholders Equity" > 0
+      ROA               → check: income_statement.csv has "Net Income", balance_sheet.csv has "Total Assets" > 0
+      Debt-to-Equity    → check: balance_sheet.csv has "Total Debt" and "Stockholders Equity" > 0
+      Current Ratio     → check: balance_sheet.csv has "Current Assets" and "Current Liabilities" > 0
+      Gross Margin      → check: income_statement.csv has "Total Revenue" > 0 and "Cost Of Revenue"
+      Net Margin        → check: income_statement.csv has "Net Income" and "Total Revenue" > 0
+      Operating Margin  → check: income_statement.csv has "Operating Income" and "Total Revenue" > 0
+
+    STEP 4 — VALUATION MODEL APPLICABILITY (assign one status each):
+      DCF               → check: cash_flow.csv has "Free Cash Flow" > 0, company_info.csv.earningsGrowth present
+      DDM               → check: company_info.csv.dividendRate > 0 and consistent dividend history
+      Graham Number     → check: company_info.csv.trailingEps > 0 and company_info.csv.bookValue > 0
+      Relative Valuation → check: company_info.csv.trailingEps > 0
+
+    STATUS RULES:
+      HARD_BLOCKED = file missing, column absent, or denominator is zero/null
+      SOFT_BLOCKED = data exists but economically misleading (e.g. negative EPS makes PE meaningless)
+      VALID = data present and calculation is meaningful
+
+    STEP 5 — ISSUES:
+    For each hard/soft block, emit evidence in format: file_name.column_name -> issue
+    Example: company_info.trailingEps -> negative
+
+    IMPORTANT:
+    - Return ONLY a valid JSON object matching the Pydantic schema.
+    - Do not wrap in markdown/code fences.
+    - Do NOT interpret investment quality — only validate data readiness.
+  expected_output: >
+    JSON with: summary (counts sentence), gate_status, market_context, company_type,
+    validated_files, missing_or_invalid_files, critical_issues, warnings,
+    ratio_applicability (13 items), valuation_model_applicability (4 items).
+  agent: data_sanity_agent
+
+analyze_valuation_ratios:
+  description: >
+    Determine whether {symbol} is cheap, fairly valued, or expensive using specific
+    ratio comparisons.
+
+    PRE-CONDITION: Only analyze ratios marked VALID by validate_data_sanity. Skip SOFT_BLOCKED and HARD_BLOCKED.
+
+    STEP 1 — READ RAW VALUES:
+    Use csv_reader to read company_info.csv for {symbol}. Extract:
+      currentPrice, trailingPE, forwardPE, bookValue, enterpriseValue, ebitda,
+      revenuePerShare, earningsGrowth, profitMargins, returnOnEquity, returnOnAssets,
+      grossMargins, operatingMargins, beta.
+
+    STEP 2 — COMPUTE DERIVED RATIOS (use financial_calculator tool for each):
+      - P/B Ratio: metric="pb_ratio", price=currentPrice, book_value_per_share=bookValue
+      - P/S Ratio: metric="ps_ratio", price=currentPrice, revenue_per_share=revenuePerShare
+      - EV/EBITDA: metric="ev_ebitda", enterprise_value=enterpriseValue, ebitda=ebitda
+      - PEG Ratio: metric="peg_ratio", pe_ratio=trailingPE, earnings_growth_rate=earningsGrowth
+
+    STEP 3 — COMPARE EACH RATIO (produce actual insights, not definitions):
+      For each ratio, answer: "Is {symbol} expensive or cheap on this metric?"
+
+      Trailing P/E (trailingPE from CSV):
+        Compare vs S&P 500 average (~22x) and sector median (look up from context).
+        State: "{symbol} PE of X vs sector median Y — Z% premium/discount."
+
+      Forward P/E (forwardPE from CSV):
+        Compare vs trailing P/E.
+        State: "Forward PE X vs trailing PE Y — market expects Z% earnings growth/contraction."
+
+      P/B Ratio (computed):
+        Compare vs 1.0 and typical range for sector.
+        State: "Trading at Xx book — tech avg is 5-15x, financials 1-2x."
+
+      EV/EBITDA (computed):
+        Below 10 = potentially cheap, 10-15 = fair, above 15 = expensive.
+        State: "EV/EBITDA of X — [cheap/fair/expensive] vs sector range."
+
+      PEG Ratio (computed):
+        Below 1.0 = growth underpriced, above 2.0 = growth overpriced.
+        State: "PEG of X with Y% growth — growth [not yet / already / more than] priced in."
+
+      Profitability (from CSV): grossMargins, operatingMargins, profitMargins, returnOnEquity, returnOnAssets.
+        State actual % values and whether they're above/below sector norms.
+
+    STEP 4 — PRICING IMPLICATIONS (up to 4):
+      State concrete conclusions, e.g.:
+        "Premium PE justified by 25% earnings growth and sector-leading ROE of 35%"
+        "EV/EBITDA of 8.5x suggests discount to sector — possible value opportunity"
+        "PEG of 0.8 implies growth not fully priced in at current levels"
+
+    OUTPUT FORMAT:
+    - "summary": one sentence with valuation stance. Include: undervalued/overvalued/fairly valued/premium/discount.
+      Example: "AAPL trades at a 30% PE premium to sector but PEG of 0.9 suggests growth is underpriced."
+    - "metrics": up to 5 MetricItem objects. Each must have label, value (the actual number), note (comparative insight), source (csv file).
+    - "implications": up to 4 pricing conclusions.
+    - "citations": sources used.
+
+    IMPORTANT:
+    - Return ONLY a valid JSON object. No markdown fences.
+    - Every metric MUST show the actual number and a comparison — not just "above average."
+    - Do NOT explain what P/E means. State what {symbol}'s P/E TELLS US about pricing.
+    - Do NOT run DCF, DDM, or Graham — only ratio interpretation.
+  expected_output: >
+    JSON with: summary (valuation stance), metrics (up to 5 with actual numbers and comparisons),
+    implications (up to 4 pricing conclusions), citations.
+  agent: ratio_analyst
+  context:
+    - validate_data_sanity
+
+analyze_price_performance:
+  description: >
+    Quantify how {symbol} performed vs benchmarks and characterize its downside risk
+    with specific computed numbers.
+
+    STEP 1 — READ PRICE DATA:
+    Use csv_reader to read:
+      - historical_prices.csv for {symbol} (Close column)
+      - market_index.csv (S&P 500 / NIFTY 50 benchmark Close column)
+      - sector_index.csv (sector ETF benchmark Close column)
+
+    STEP 2 — COMPUTE RETURN METRICS (use financial_calculator for each):
+    Extract comma-separated Close prices (oldest first) for each horizon available.
+
+      Stock returns:
+        metric="returns", prices=<stock close prices, comma separated>
+      Market returns:
+        metric="returns", prices=<market index close prices, comma separated>
+      Sector returns:
+        metric="returns", prices=<sector index close prices, comma separated>
+
+      Compute for each available horizon (1Y, 3Y, 5Y or max):
+        Stock return, market return, sector return.
+        Excess return = stock return - market return.
+
+    STEP 3 — COMPUTE RISK METRICS (use financial_calculator for each):
+      - Volatility: metric="volatility", prices=<stock close prices>
+      - Sharpe ratio: metric="sharpe_ratio", prices=<stock close prices>, risk_free_rate=0.04
+      - Beta: metric="beta", stock_prices=<stock>, market_prices=<market index>
+      - Max drawdown: metric="max_drawdown", prices=<stock close prices>
+      Also compute market volatility for comparison.
+
+    STEP 4 — PRODUCE INSIGHTS (not definitions):
+      For each metric, state the actual number + what it means for THIS stock:
+
+      Returns:
+        "1Y return: +18.3% vs S&P 500 +12.1% — outperformed by 6.2pp"
+        "3Y annualized: +14.5% vs S&P 500 +10.8% — consistent outperformance"
+
+      Volatility:
+        "Annualized vol: 28.4% vs market 17.2% — 65% more volatile than market"
+
+      Sharpe:
+        "Sharpe ratio: 0.72 — decent risk-adjusted return (>0.5 is acceptable, >1.0 is good)"
+
+      Beta:
+        "Beta: 1.25 — moves 25% more than the market on average"
+
+      Max Drawdown:
+        "Max drawdown: -32.5% — for every $100 invested at peak, worst drop was to $67.50"
+
+      RISK CLASSIFICATION (based on computed data):
+        Low: beta < 0.8, max drawdown < 15%, vol below market
+        Medium: beta 0.8-1.2, max drawdown 15-30%
+        High: beta > 1.2, max drawdown > 30%, vol significantly above market
+
+    OUTPUT FORMAT:
+    - "summary": one sentence. Example: "AAPL returned +18.3% over 1Y, outperforming S&P 500 by 6pp with moderate drawdown risk."
+    - "metrics": up to 5 MetricItem (label, value=actual number, note=comparison insight, source=csv file).
+    - "risk_notes": up to 3 risk observations with actual numbers.
+    - "citations": sources.
+
+    IMPORTANT:
+    - Return ONLY a valid JSON object. No markdown fences.
+    - You MUST use financial_calculator — do NOT estimate metrics manually.
+    - Every metric must have the actual number AND the benchmark comparison.
+  expected_output: >
+    JSON with: summary (return + risk profile), metrics (up to 5 computed values with comparisons),
+    risk_notes (up to 3 with actual numbers), citations.
+  agent: performance_analyst
+
+analyze_financial_health:
+  description: >
+    Determine whether {symbol}'s business is getting stronger or weaker using specific
+    YoY growth rates, margin trends, leverage ratios, and cash flow quality.
+
+    STEP 1 — REVENUE & EARNINGS GROWTH:
+    Use csv_reader to read income_statement.csv for {symbol}.
+    Compare the most recent year vs prior year for:
+      - Total Revenue: compute YoY growth %
+      - Net Income: compute YoY growth %
+      - Operating Income: compute YoY growth %
+    Also read quarterly_income_statement.csv:
+      - Most recent quarter vs same quarter last year (QoQ YoY growth).
+
+    State actual numbers: "Revenue: $426B → $394B, up 8.1% YoY."
+
+    STEP 2 — MARGIN ANALYSIS:
+    Read from company_info.csv: grossMargins, operatingMargins, profitMargins.
+    Also compute from income_statement.csv for trend (current year vs prior year):
+      - Gross Margin: use financial_calculator metric="gross_margin", revenue=Total Revenue, cost_of_goods_sold=Cost Of Revenue
+      - Operating Margin: use financial_calculator metric="operating_margin", operating_income=Operating Income, revenue=Total Revenue
+      - Net Margin: use financial_calculator metric="net_margin", net_income=Net Income, revenue=Total Revenue
+
+    State: "Gross margin: 46.2% (up from 44.1%) — margin expanding."
+    Or: "Operating margin: 31.5% (down from 33.8%) — margin compressing."
+
+    STEP 3 — BALANCE SHEET STRENGTH:
+    Use csv_reader to read balance_sheet.csv. Extract:
+      Total Assets, Total Debt, Stockholders Equity, Current Assets, Current Liabilities,
+      Cash And Cash Equivalents.
+
+    Compute using financial_calculator:
+      - Debt-to-Equity: metric="debt_to_equity", total_debt=<value>, shareholders_equity=<value>
+      - Current Ratio: metric="current_ratio", current_assets=<value>, current_liabilities=<value>
+
+    State: "D/E ratio: 1.8 (up from 1.4 last year) — leverage increasing."
+    State: "Current ratio: 1.07 — just above 1.0, tight liquidity."
+    State: "Cash: $62B (down from $76B) — cash position declining."
+
+    STEP 4 — CASH FLOW QUALITY:
+    Use csv_reader to read cash_flow.csv. Extract:
+      Free Cash Flow, Operating Cash Flow, Capital Expenditure.
+
+    State actual numbers and trends:
+      "FCF: $112B (up 15% YoY) — strong cash generation."
+      "OCF/Net Income ratio: 1.15 — healthy cash conversion (>1.0 is good)."
+      "CapEx: $10.5B (up from $8.2B) — increasing investment."
+
+    OUTPUT FORMAT:
+    - "summary": one sentence with health direction. Include: strong/weak/improving/deteriorating/stable/mixed/solid.
+      Example: "AAPL shows strong financial health with 8% revenue growth, expanding margins, and $112B FCF."
+    - "metrics": up to 5 MetricItem (label, value=actual number, note=trend insight, source=csv file).
+    - "growth_signals": up to 3 directional signals.
+      Example: ["improving — revenue growth accelerated from 5% to 8%", "stable — margins flat YoY"]
+    - "caution_signals": up to 3 data-backed concerns.
+      Example: ["Debt-to-Equity rose from 1.4 to 1.8", "Cash position declined 18% YoY"]
+    - "citations": sources.
+
+    IMPORTANT:
+    - Return ONLY a valid JSON object. No markdown fences.
+    - Every claim MUST include actual numbers and the CSV source.
+    - State "improving", "stable", or "deteriorating" WITH the evidence, not just the label.
+    - Do NOT add valuation opinions or investment recommendations.
+  expected_output: >
+    JSON with: summary (health direction with evidence), metrics (up to 5 with actual numbers),
+    growth_signals (up to 3 with data), caution_signals (up to 3 with data), citations.
+  agent: fundamental_analyst
+
+analyze_market_sentiment:
+  description: >
+    Quantify market expectations for {symbol} using analyst ratings, insider actions,
+    institutional positioning, and expectation-shifting news.
+
+    STEP 1 — ANALYST CONSENSUS:
+    Use csv_reader to read recommendations.csv for {symbol}.
+    From the most recent period row, extract: strongBuy, buy, hold, sell, strongSell.
+    Compute:
+      total = strongBuy + buy + hold + sell + strongSell
+      Buy% = (strongBuy + buy) / total * 100
+      Hold% = hold / total * 100
+      Sell% = (sell + strongSell) / total * 100
+    Compare to prior period row if available — is consensus shifting bullish, bearish, or stable?
+    State: "72% Buy / 23% Hold / 5% Sell — shifted from 65% Buy last period (bullish shift)."
+
+    STEP 2 — INSIDER ACTIVITY:
+    Use csv_reader to read insider_transactions.csv for {symbol}.
+    Count: number of insider buys vs sells in recent transactions.
+    State: "5 insider sells totaling $12M vs 1 buy of $0.5M — net selling."
+    Or: "3 insider buys totaling $2M, 0 sells — net buying (bullish signal)."
+
+    STEP 3 — INSTITUTIONAL POSITIONING:
+    Use csv_reader to read institutional_holders.csv for {symbol}.
+    Note top 3-5 holders by share count, and their pctChange column.
+    State: "Vanguard (+2.1%), BlackRock (-0.3%), State Street (+0.8%) — net increasing positions."
+
+    STEP 4 — NEWS:
+    Use csv_reader to read news.csv — review saved headlines.
+    Only include items that SHIFT expectations (upgrades, downgrades, earnings surprises,
+    guidance changes, major deals, regulatory actions).
+    Skip routine/confirmatory headlines. Max 3 local items.
+    Then use search tool for ONE query: "{symbol} stock news latest analyst rating".
+    Include max 2 external items, only if they materially change expectations.
+
+    STEP 5 — EXPECTATION MISMATCH SYNTHESIS:
+    Where do the signals disagree? Example mismatches:
+      "Analysts are 72% bullish but insiders are net selling — potential disconnect."
+      "Institutional holders increasing despite bearish consensus — smart money diverging."
+      "No mismatch — all signals align as moderately bullish."
+
+    OUTPUT FORMAT:
+    - "summary": one sentence with expectation state. Include: outlook/consensus/expectation/sentiment/momentum/positioning.
+      Example: "Analyst consensus for AAPL is moderately bullish (72% Buy) with net insider selling creating a positioning mismatch."
+    - "sentiment_signal": exactly "Positive", "Neutral", or "Negative".
+    - "analyst_consensus": short statement with actual numbers.
+      Example: "72% Buy / 23% Hold / 5% Sell, shifted bullish from prior period."
+    - "key_points": up to 4 data-backed observations.
+    - "news": up to 5 CitationItem (title, publisher, url) — expectation-shifting items only.
+    - "citations": sources.
+
+    IMPORTANT:
+    - Return ONLY a valid JSON object. No markdown fences.
+    - analyst_consensus MUST include actual % or count numbers, not just "bullish."
+    - Every key_point must reference specific data.
+    - Do NOT provide investment advice or recommendations.
+  expected_output: >
+    JSON with: summary (expectation state with data), sentiment_signal, analyst_consensus (with numbers),
+    key_points (up to 4 data-backed), news (up to 5), citations.
+  agent: sentiment_analyst
+
+review_analysis:
+  description: >
+    Check the four analysts' outputs for {symbol} for inconsistencies, contradictions,
+    and data sanity violations.
+
+    CHECK 1 — NUMERICAL CONSISTENCY:
+    Compare metrics across agents. Flag if:
+      - Valuation and financial health cite different values for the same metric.
+      - Performance returns don't match what financial health shows for revenue growth direction.
+      - Any agent cites a number that doesn't match the CSV source.
+
+    CHECK 2 — CONCLUSION CONSISTENCY:
+    Flag if agents reach contradictory conclusions:
+      - Performance says "high risk" but financial health says "strong" — explain if valid or contradiction.
+      - Valuation says "expensive" but sentiment says "bullish" — flag the tension.
+      - Financial health says "deteriorating" but sentiment shows "positive" — explain.
+
+    CHECK 3 — DATA SANITY VIOLATIONS:
+    Check if any analyst used a ratio or model that data_sanity marked as SOFT_BLOCKED or HARD_BLOCKED.
+
+    CHECK 4 — COMPLETENESS:
+    Did any analyst skip critical data that was available and marked VALID?
+
+    For each issue, state:
+      WHAT: the specific numbers that conflict.
+      WHY: brief reason for the discrepancy.
+      CORRECT: what should be trusted.
+
+    OUTPUT FORMAT:
+    - "summary": one sentence summarising review outcome.
+      Example: "All agents are numerically consistent; no data sanity violations found."
+      Example: "PE value mismatch between valuation (25.3) and financial health (22.1) agents."
+    - "confidence_adjustment": exactly "Increase", "Unchanged", or "Reduce".
+    - "data_accuracy": up to 5 specific mismatch observations.
+    - "watchouts": up to 5 methodology concerns.
+    - "confirmed_findings": up to 3 items (cleared if issues found).
+
+    IMPORTANT:
+    - Return ONLY a valid JSON object. No markdown fences.
+    - Only flag MATERIAL issues — not style differences.
+    - Do NOT add new analysis or valuation opinions.
+  expected_output: >
+    JSON with: summary, confidence_adjustment, data_accuracy, watchouts, confirmed_findings.
+  agent: market_reviewer
+  context:
+    - analyze_valuation_ratios
+    - analyze_price_performance
+    - analyze_financial_health
+    - analyze_market_sentiment
+
+generate_investment_report:
+  description: >
+    Synthesize the four analysts' findings and the reviewer's quality check for {symbol}
+    into a final investment verdict with specific, actionable guidance.
+
+    Do NOT re-analyze — only synthesize what the upstream agents found.
+
+    VERDICT DECISION TREE:
+      STRONG BUY: undervalued on multiple metrics + strong/improving fundamentals + positive sentiment + high reviewer confidence
+      BUY: reasonably valued or slightly undervalued + solid fundamentals + neutral-to-positive sentiment
+      HOLD: fairly valued + stable fundamentals + mixed signals or neutral sentiment
+      SELL: overvalued on multiple metrics + weakening fundamentals + negative or deteriorating sentiment
+      STRONG SELL: significantly overvalued + deteriorating fundamentals + negative sentiment + reviewer flagged material issues
+
+    CONFIDENCE from reviewer:
+      "Increase" → "High"
+      "Unchanged" → "Medium"
+      "Reduce" → "Low"
+
+    STRENGTHS (up to 4) — pull from upstream agents with attribution:
+      Example: "Revenue growing 8.2% YoY with expanding margins (fundamental analyst)"
+      Example: "Trades at 15% PE discount to sector (valuation analyst)"
+      Example: "72% analyst Buy consensus with institutional accumulation (sentiment analyst)"
+
+    RISKS (up to 4) — pull from upstream agents with attribution:
+      Example: "Beta of 1.35 implies above-market volatility (performance analyst)"
+      Example: "D/E ratio rose from 1.4 to 1.8 — increasing leverage (fundamental analyst)"
+      Example: "Insider net selling despite bullish consensus (sentiment analyst)"
+
+    WATCH NEXT (up to 3) — upcoming catalysts or triggers:
+      Example: "Next earnings report — will revenue growth acceleration continue?"
+      Example: "Fed rate decision — impact on forward PE compression/expansion"
+
+    SUITABILITY:
+      best_suited_for (up to 3): which investor profiles fit?
+        Example: "Growth investors comfortable with above-average volatility"
+      not_ideal_for (up to 3): which investor profiles should avoid?
+        Example: "Conservative income seekers needing stable dividends"
+
+    GUIDANCE:
+      guidance_for_existing_holders: one actionable sentence.
+        Example: "Hold position — fundamentals support current valuation; monitor D/E trend."
+      guidance_for_new_buyers: one actionable sentence.
+        Example: "Accumulate on pullbacks below $175 given 15% PE discount to peers."
+
+    OUTPUT FORMAT:
+    - "summary": one sentence investment conclusion.
+      Example: "At current prices, AAPL offers moderate upside backed by strong fundamentals and growth momentum."
+    - "verdict": one of "STRONG BUY", "BUY", "HOLD", "SELL", "STRONG SELL".
+    - "confidence": one of "High", "Medium", "Low".
+    - "strengths": up to 4 items with data references.
+    - "risks": up to 4 items with data references.
+    - "watch_next": up to 3 upcoming catalysts.
+    - "best_suited_for": up to 3 investor profiles.
+    - "not_ideal_for": up to 3 investor profiles.
+    - "guidance_for_existing_holders": one sentence.
+    - "guidance_for_new_buyers": one sentence.
+    - "citations": sources.
+
+    IMPORTANT:
+    - Return ONLY a valid JSON object. No markdown fences.
+    - Every strength/risk must trace to a specific upstream agent finding.
+    - Do NOT restate raw numbers without insight — say what they MEAN.
+    - Confidence MUST come from the reviewer's confidence_adjustment.
+  expected_output: >
+    JSON with: summary, verdict, confidence, strengths, risks, watch_next,
+    best_suited_for, not_ideal_for, guidance_for_existing_holders,
+    guidance_for_new_buyers, citations.
+  agent: investment_advisor
+  context:
+    - analyze_valuation_ratios
+    - analyze_price_performance
+    - analyze_financial_health
+    - analyze_market_sentiment
+    - review_analysis

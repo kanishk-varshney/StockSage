@@ -1,0 +1,210 @@
+"""Financial health card renderer."""
+
+from src.app.utils.formatters._shared import (
+    _badge_classes,
+    _card,
+    _clean_line,
+    _esc,
+    _info_icon,
+    _parse_kv,
+    _parse_kv_split,
+)
+
+
+def _strip_suffix(val: str, *suffixes: str) -> str:
+    v = val.strip()
+    for s in suffixes:
+        if v.endswith(s):
+            v = v[: -len(s)].strip()
+    return v
+
+
+def _render_health_card(raw: str, symbol: str) -> str:  # noqa: ARG001
+    health_status = _parse_kv(raw, "Health Status") or "STABLE"
+    insight = _parse_kv(raw, "Insight") or ""
+    structured_summary = _parse_kv(raw, "Structured Summary") or ""
+
+    rev_desc, rev_val = _parse_kv_split(raw, "Revenue Growth Desc")
+    profit_desc, profit_val = _parse_kv_split(raw, "Profit Growth Desc")
+    debt_desc, debt_val = _parse_kv_split(raw, "Debt Desc")
+    cash_desc, cash_val = _parse_kv_split(raw, "Cash Desc")
+
+    rev_growth_rate = _strip_suffix(
+        _parse_kv(raw, "Revenue Growth Rate") or _parse_kv(raw, "Revenue Growth (%)"), "%"
+    )
+    earn_growth_rate = _strip_suffix(
+        _parse_kv(raw, "Earnings Growth Rate") or _parse_kv(raw, "Earnings Growth (%)"), "%"
+    )
+    debt_ratio = _strip_suffix(debt_val, "%")
+
+    badge_cls = _badge_classes(health_status)
+    rg_color = (
+        "text-green-600"
+        if rev_growth_rate and not rev_growth_rate.startswith("-")
+        else "text-red-600"
+    )
+    eg_color = (
+        "text-green-600"
+        if earn_growth_rate and not earn_growth_rate.startswith("-")
+        else "text-red-600"
+    )
+
+    growth_signals = []
+    caution_signals = []
+    for line in raw.splitlines():
+        cl = _clean_line(line)
+        if cl.lower().startswith("growth signal:"):
+            growth_signals.append(cl.split(":", 1)[1].strip())
+        elif cl.lower().startswith("caution signal:"):
+            caution_signals.append(cl.split(":", 1)[1].strip())
+
+    body = f"""
+    <div class="flex items-start justify-between mb-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center"><span class="text-green-600 text-lg">&#x1F3E5;</span></div>
+        <div>
+          <h3 class="text-lg font-bold text-gray-900">Financial Health</h3>
+          <p class="text-xs text-gray-500">Growth, profitability &amp; stability</p>
+        </div>
+      </div>
+      <span class="px-3 py-1 rounded text-xs font-bold {badge_cls}">{_esc(health_status)}</span>
+    </div>
+
+    <!-- Top 4 metrics -->
+    <div class="grid grid-cols-4 gap-3 mb-5">
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1"><p class="text-sm font-semibold text-gray-800">Revenue Growth</p>{
+        _info_icon("Year-over-year revenue growth rate.")
+    }</div>
+          <span class="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center text-green-600 text-xs">&#x1F4C8;</span>
+        </div>
+        <p class="text-2xl font-bold text-gray-900 mt-2">{
+        _esc(rev_growth_rate) if rev_growth_rate else "N/A"
+    }<span class="text-sm font-semibold text-gray-400 ml-0.5">%</span></p>
+      </div>
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1"><p class="text-sm font-semibold text-gray-800">Earnings Growth</p>{
+        _info_icon("Year-over-year net income growth rate.")
+    }</div>
+          <span class="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 text-xs">&#x26A1;</span>
+        </div>
+        <p class="text-2xl font-bold text-gray-900 mt-2">{
+        _esc(earn_growth_rate) if earn_growth_rate else "N/A"
+    }<span class="text-sm font-semibold text-gray-400 ml-0.5">%</span></p>
+      </div>
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1"><p class="text-sm font-semibold text-gray-800">Debt-to-Equity</p>{
+        _info_icon("Total debt divided by shareholder equity. Lower = less leveraged.")
+    }</div>
+          <span class="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600 text-xs">&#x1F534;</span>
+        </div>
+        <p class="text-2xl font-bold text-gray-900 mt-2">{
+        _esc(debt_ratio) if debt_ratio else "N/A"
+    }<span class="text-sm font-semibold text-gray-400 ml-0.5">%</span></p>
+      </div>
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1"><p class="text-sm font-semibold text-gray-800">Free Cash Flow</p>{
+        _info_icon("Cash generated after capital expenditures. Key to dividends and buybacks.")
+    }</div>
+          <span class="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center text-green-600 text-xs">&#x1F4B2;</span>
+        </div>
+        <p class="text-2xl font-bold text-gray-900 mt-2">{_esc(cash_val) if cash_val else "N/A"}</p>
+      </div>
+    </div>
+
+    <!-- Growth & Profitability Metrics -->
+    <div class="bg-green-50 border border-green-200 rounded-xl p-4 mb-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center text-white text-sm">&#x1F4C8;</span>
+        <p class="text-sm font-bold text-gray-800">&#x1F4CA; Growth &amp; Profitability Metrics</p>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-white border border-gray-200 rounded-xl p-4">
+          <div class="flex items-center gap-1"><p class="text-sm font-semibold text-gray-800">Revenue Growth Rate</p>{
+        _info_icon("Annualized revenue growth over the analysis period.")
+    }</div>
+          <p class="text-2xl font-bold {rg_color} mt-2">{
+        _esc(rev_growth_rate) if rev_growth_rate else "N/A"
+    }%</p>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl p-4">
+          <div class="flex items-center gap-1"><p class="text-sm font-semibold text-gray-800">Earnings Growth Rate</p>{
+        _info_icon("Annualized net income growth over the analysis period.")
+    }</div>
+          <p class="text-2xl font-bold {eg_color} mt-2">{
+        _esc(earn_growth_rate) if earn_growth_rate else "N/A"
+    }%</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key Financial Insights -->
+    <div class="mb-1">
+      <p class="text-sm font-bold text-gray-800 mb-3">&#x1F4A1; Key Financial Insights</p>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-white border border-gray-200 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="w-5 h-5 rounded bg-blue-100 flex items-center justify-center text-blue-600 text-xs">i</span>
+            <p class="text-sm font-bold text-gray-800">Insight</p>
+          </div>
+          <p class="text-sm text-gray-600">{_esc(insight) if insight else "N/A"}</p>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="w-5 h-5 rounded bg-blue-100 flex items-center justify-center text-blue-600 text-xs">i</span>
+            <p class="text-sm font-bold text-gray-800">Structured Summary</p>
+          </div>
+          <p class="text-sm text-gray-600">{
+        _esc(structured_summary) if structured_summary else "N/A"
+    }</p>
+        </div>
+
+        <div class="bg-green-50 border border-green-300 border-l-4 border-l-green-500 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-green-600 font-bold">&#x2713;</span>
+            <p class="text-sm font-bold text-green-700">Revenue Growth Rate</p>
+          </div>
+          <p class="text-sm text-green-800">{_esc(rev_desc) if rev_desc else "N/A"}</p>
+        </div>
+        <div class="bg-green-50 border border-green-300 border-l-4 border-l-green-500 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-green-600 font-bold">&#x2713;</span>
+            <p class="text-sm font-bold text-green-700">Net Income Growth Rate</p>
+          </div>
+          <p class="text-sm text-green-800">{_esc(profit_desc) if profit_desc else "N/A"}</p>
+        </div>
+
+        <div class="bg-white border border-gray-200 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="w-5 h-5 rounded bg-blue-100 flex items-center justify-center text-blue-600 text-xs">i</span>
+            <p class="text-sm font-bold text-gray-800">Debt-to-Equity Ratio</p>
+          </div>
+          <p class="text-lg font-bold text-gray-900">{_esc(debt_ratio) if debt_ratio else "N/A"}</p>
+        </div>
+        {
+        "".join(
+            f'''<div class="bg-white border border-gray-200 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-1"><span class="text-green-600 font-bold">&#x2713;</span><p class="text-sm font-bold text-gray-800">Growth Signal</p></div>
+          <p class="text-sm text-gray-600">{_esc(g)}</p>
+        </div>'''
+            for g in growth_signals
+        )
+    }
+      </div>
+
+      {
+        "".join(
+            f'''<div class="bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500 rounded-xl p-4 mt-3">
+        <div class="flex items-center gap-2 mb-1"><span class="text-amber-600">&#x26A0;</span><p class="text-sm font-bold text-amber-700">Caution Signal</p></div>
+        <p class="text-sm text-amber-800">{_esc(c)}</p>
+      </div>'''
+            for c in caution_signals
+        )
+    }
+    </div>
+    """
+    return _card(body, data_section="health")
