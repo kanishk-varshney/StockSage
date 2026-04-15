@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from src.crew.schemas._base import coerce_summary_text
+from src.crew.schemas._base import coerce_summary_text, normalize_payload_lists
 from src.crew.schemas._items import CitationItem, MetricItem
 
 
@@ -33,6 +33,7 @@ class PerformanceOutput(BaseModel):
         if not isinstance(value, dict):
             return value
         payload = dict(value)
+        normalize_payload_lists(cls, payload)
         payload["summary"] = coerce_summary_text(
             payload.get("summary"),
             fallback="Returns are mixed with moderate downside risk.",
@@ -53,9 +54,7 @@ class PerformanceOutput(BaseModel):
 
     @field_validator("metrics")
     @classmethod
-    def _validate_metrics_length(
-        cls, values: list[MetricItem]
-    ) -> list[MetricItem]:
+    def _validate_metrics_length(cls, values: list[MetricItem]) -> list[MetricItem]:
         """[field_validator] Cap metrics at 5 items.
 
         Stage: runs per-field after parsing.

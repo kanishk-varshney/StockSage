@@ -6,6 +6,7 @@ import json
 
 import numpy as np
 import pandas as pd
+
 from src.core.config.data_contracts import (
     CSV_CASH_FLOW,
     CSV_COMPANY_INFO,
@@ -30,14 +31,18 @@ def build_task_facts(symbol: str) -> dict[str, str]:
     holders = _read_csv(sym, CSV_INSTITUTIONAL_HOLDERS)
     news = _read_csv(sym, CSV_NEWS)
 
-    company_row = company.iloc[0] if company is not None and not company.empty else pd.Series(dtype=object)
+    company_row = (
+        company.iloc[0] if company is not None and not company.empty else pd.Series(dtype=object)
+    )
 
     facts: dict[str, str] = {}
     facts["analyze_valuation_ratios"] = _valuation_facts(company_row, cash, sym)
     facts["analyze_price_performance"] = _performance_facts(prices, market)
     facts["analyze_financial_health"] = _financial_health_facts(company_row, income, cash)
     facts["analyze_market_sentiment"] = _sentiment_facts(recs, holders, news)
-    facts["generate_investment_report"] = _company_basics_facts(company_row, sym, recs, holders, prices, market)
+    facts["generate_investment_report"] = _company_basics_facts(
+        company_row, sym, recs, holders, prices, market
+    )
     return facts
 
 
@@ -238,7 +243,9 @@ def _quick_answers(
     de = _f(row, "debtToEquity")
     ocf = _f(row, "operatingCashflow")
     if de is not None and de < 100 and ocf is not None and ocf > 0:
-        lines.append("Financially Healthy: Yes | Low debt and strong cash generation show solid financial footing")
+        lines.append(
+            "Financially Healthy: Yes | Low debt and strong cash generation show solid financial footing"
+        )
     elif de is not None and de < 200:
         lines.append("Financially Healthy: Mixed | Moderate debt levels with acceptable cash flow")
     else:
@@ -249,22 +256,32 @@ def _quick_answers(
         sr = np.diff(sp) / sp[:-1]
         vol = float(np.std(sr, ddof=1) * np.sqrt(252)) * 100
         if vol < 15:
-            lines.append(f"Stock Risky: Low | Low volatility ({vol:.0f}% annualized) - relatively stable")
+            lines.append(
+                f"Stock Risky: Low | Low volatility ({vol:.0f}% annualized) - relatively stable"
+            )
         elif vol < 30:
-            lines.append("Stock Risky: Moderate | Moderate volatility - average risk for stock investments")
+            lines.append(
+                "Stock Risky: Moderate | Moderate volatility - average risk for stock investments"
+            )
         else:
-            lines.append(f"Stock Risky: High | High volatility ({vol:.0f}% annualized) - significant price swings")
+            lines.append(
+                f"Stock Risky: High | High volatility ({vol:.0f}% annualized) - significant price swings"
+            )
     else:
         lines.append("Stock Risky: Unknown | Insufficient data to assess risk")
 
     pe = _f(row, "trailingPE")
     if pe is not None:
         if pe > 25:
-            lines.append("Expensive: Expensive | Trading above historical averages - may need strong growth to justify price")
+            lines.append(
+                "Expensive: Expensive | Trading above historical averages - may need strong growth to justify price"
+            )
         elif pe > 15:
             lines.append("Expensive: Fair | Trading near fair value based on earnings")
         else:
-            lines.append("Expensive: Cheap | Trading below average valuations - potential opportunity")
+            lines.append(
+                "Expensive: Cheap | Trading below average valuations - potential opportunity"
+            )
     else:
         lines.append("Expensive: Unknown | Insufficient data to assess valuation")
 
@@ -294,9 +311,9 @@ def _valuation_facts(row: pd.Series, cash: pd.DataFrame | None, symbol: str) -> 
         f"P/S Ratio: {_fmt_num(_f(row, 'priceToSalesTrailing12Months'), 'x')}",
         f"PEG Ratio: {_fmt_num(peg, 'x') if peg else 'N/A'}",
         f"EV/EBITDA: {_fmt_num(ev_ebitda, 'x') if ev_ebitda else 'N/A'}",
-        f"ROE (%): {_fmt_num(_f(row, 'returnOnEquity', 0) * 100 if _f(row, 'returnOnEquity') is not None else None, '%')}",
-        f"ROA (%): {_fmt_num(_f(row, 'returnOnAssets', 0) * 100 if _f(row, 'returnOnAssets') is not None else None, '%')}",
-        f"Gross Margin (%): {_fmt_num(_f(row, 'grossMargins', 0) * 100 if _f(row, 'grossMargins') is not None else None, '%')}",
+        f"ROE (%): {_fmt_num(_f(row, 'returnOnEquity', 0) * 100 if _f(row, 'returnOnEquity') is not None else None, '%')}",  # type: ignore[operator]
+        f"ROA (%): {_fmt_num(_f(row, 'returnOnAssets', 0) * 100 if _f(row, 'returnOnAssets') is not None else None, '%')}",  # type: ignore[operator]
+        f"Gross Margin (%): {_fmt_num(_f(row, 'grossMargins', 0) * 100 if _f(row, 'grossMargins') is not None else None, '%')}",  # type: ignore[operator]
         "",
         _valuation_verdict(row),
         "",
@@ -374,15 +391,19 @@ def _performance_facts(prices: pd.DataFrame | None, market: pd.DataFrame | None)
     ]
     if chart_json:
         lines.append(f"CHART_DATA: {chart_json}")
-    lines.extend([
-        "",
-        "INSIGHT",
-        "Insight: Risk is acceptable for growth investors if drawdowns are tolerated.",
-    ])
+    lines.extend(
+        [
+            "",
+            "INSIGHT",
+            "Insight: Risk is acceptable for growth investors if drawdowns are tolerated.",
+        ]
+    )
     return "\n".join(lines)
 
 
-def _financial_health_facts(row: pd.Series, income: pd.DataFrame | None, cash: pd.DataFrame | None) -> str:
+def _financial_health_facts(
+    row: pd.Series, income: pd.DataFrame | None, cash: pd.DataFrame | None
+) -> str:
     rev_growth = _f(row, "revenueGrowth")
     earn_growth = _f(row, "earningsGrowth")
     de_ratio = _f(row, "debtToEquity")
@@ -395,20 +416,20 @@ def _financial_health_facts(row: pd.Series, income: pd.DataFrame | None, cash: p
         f"Health Status: {status}",
     ]
 
-    lines.append(
-        "HEALTH_DESCRIPTIONS"
-    )
+    lines.append("HEALTH_DESCRIPTIONS")
     rg_pct = _fmt_num(rev_growth * 100, "% annually") if rev_growth is not None else "N/A"
     eg_pct = _fmt_num(earn_growth * 100, "% annually") if earn_growth is not None else "N/A"
     de_display = _fmt_num(de_ratio, "% ratio") if de_ratio is not None else "N/A"
     ocf_display = _fmt_large(ocf) if ocf is not None else "N/A"
 
-    lines.extend([
-        f"Revenue Growth Desc: {_revenue_growth_desc(rev_growth)} | {rg_pct}",
-        f"Profit Growth Desc: {_earnings_growth_desc(earn_growth)} | {eg_pct}",
-        f"Debt Desc: {_debt_desc(de_ratio)} | {de_display}",
-        f"Cash Desc: {_cashflow_desc(ocf)} | {ocf_display}",
-    ])
+    lines.extend(
+        [
+            f"Revenue Growth Desc: {_revenue_growth_desc(rev_growth)} | {rg_pct}",
+            f"Profit Growth Desc: {_earnings_growth_desc(earn_growth)} | {eg_pct}",
+            f"Debt Desc: {_debt_desc(de_ratio)} | {de_display}",
+            f"Cash Desc: {_cashflow_desc(ocf)} | {ocf_display}",
+        ]
+    )
 
     lines.append("")
     lines.append("FINANCIAL METRICS")
@@ -416,11 +437,13 @@ def _financial_health_facts(row: pd.Series, income: pd.DataFrame | None, cash: p
         lines.append(f"Revenue Growth Rate: {_fmt_num(rev_growth * 100, '%')}")
     if earn_growth is not None:
         lines.append(f"Earnings Growth Rate: {_fmt_num(earn_growth * 100, '%')}")
-    lines.extend([
-        f"Debt/Equity: {_fmt_num(de_ratio)}",
-        f"Current Ratio: {_fmt_num(_f(row, 'currentRatio'))}",
-        f"Operating Cash Flow (USD B): {_to_usd_billions(ocf)}",
-    ])
+    lines.extend(
+        [
+            f"Debt/Equity: {_fmt_num(de_ratio)}",
+            f"Current Ratio: {_fmt_num(_f(row, 'currentRatio'))}",
+            f"Operating Cash Flow (USD B): {_to_usd_billions(ocf)}",
+        ]
+    )
 
     if income is not None and not income.empty and "Total Revenue" in income.iloc[:, 0].values:
         try:
@@ -442,11 +465,15 @@ def _financial_health_facts(row: pd.Series, income: pd.DataFrame | None, cash: p
         except Exception:
             pass
 
-    lines.extend(["", "INSIGHT", "Insight: Balance sheet remains stable with healthy cash generation."])
+    lines.extend(
+        ["", "INSIGHT", "Insight: Balance sheet remains stable with healthy cash generation."]
+    )
     return "\n".join(lines)
 
 
-def _sentiment_facts(recs: pd.DataFrame | None, holders: pd.DataFrame | None, news: pd.DataFrame | None) -> str:
+def _sentiment_facts(
+    recs: pd.DataFrame | None, holders: pd.DataFrame | None, news: pd.DataFrame | None
+) -> str:
     lines = ["SENTIMENT & ANALYST SUMMARY"]
     if recs is not None and not recs.empty:
         latest = recs.iloc[0]
@@ -476,7 +503,15 @@ def _sentiment_facts(recs: pd.DataFrame | None, holders: pd.DataFrame | None, ne
         holder_names = ", ".join(str(x) for x in top["Holder"].tolist())
         lines.append(f"Top Holders: {holder_names}")
 
-    lines.extend(["", "INSIGHT", "Insight: Analyst positioning remains constructive, but monitor revision trend.", "", "RELATED NEWS"])
+    lines.extend(
+        [
+            "",
+            "INSIGHT",
+            "Insight: Analyst positioning remains constructive, but monitor revision trend.",
+            "",
+            "RELATED NEWS",
+        ]
+    )
     if news is not None and not news.empty and "url" in news.columns:
         lines.append("News Status: Latest cached news")
         news_rows = news.head(3).fillna("")
@@ -543,4 +578,3 @@ def _company_basics_facts(
         ]
     )
     return "\n".join(lines)
-

@@ -49,6 +49,7 @@ def test_processor_happy_path_runs_to_complete(monkeypatch):
         def __init__(self, symbol: str):
             self.symbol = symbol
             self.stock_data = StockDataStub()
+            self.critical_ok = False
 
         def run(self):
             yield LogEntry(
@@ -58,6 +59,7 @@ def test_processor_happy_path_runs_to_complete(monkeypatch):
                 symbol=self.symbol,
                 message="ok",
             )
+            self.critical_ok = True
 
     monkeypatch.setattr(proc, "DownloadPipeline", FakeDownloadPipeline)
 

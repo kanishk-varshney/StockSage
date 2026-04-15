@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from src.crew.schemas._base import (
     coerce_summary_text,
+    normalize_payload_lists,
     strip_explanatory_tail,
 )
 from src.crew.schemas._constants import CONFIDENCE_FROM_ADJUSTMENT
@@ -31,8 +32,8 @@ class FinalReportOutput(BaseModel):
     not_ideal_for: list[str] = Field(default_factory=list)
     guidance_for_existing_holders: str = ""
     guidance_for_new_buyers: str = ""
-    verdict: Literal["STRONG BUY", "BUY", "HOLD", "SELL", "STRONG SELL"]
-    confidence: Literal["High", "Medium", "Low"]
+    verdict: Literal["STRONG BUY", "BUY", "HOLD", "SELL", "STRONG SELL"] | None = None
+    confidence: Literal["High", "Medium", "Low"] | None = None
     citations: list[CitationItem] = Field(default_factory=list)
 
     @model_validator(mode="before")
@@ -49,6 +50,7 @@ class FinalReportOutput(BaseModel):
         if not isinstance(value, dict):
             return value
         payload = dict(value)
+        normalize_payload_lists(cls, payload)
         payload["summary"] = coerce_summary_text(
             payload.get("summary"),
             fallback="At current prices, risk-reward appears balanced.",
@@ -61,22 +63,18 @@ class FinalReportOutput(BaseModel):
 
         payload["guidance_for_existing_holders"] = coerce_summary_text(
             payload.get("guidance_for_existing_holders"),
-            fallback="Existing holders: maintain current exposure unless "
-            "risk profile changes.",
+            fallback="Existing holders: maintain current exposure unless risk profile changes.",
         )
         payload["guidance_for_new_buyers"] = coerce_summary_text(
             payload.get("guidance_for_new_buyers"),
-            fallback="New buyers: stage entries according to risk tolerance "
-            "and volatility.",
+            fallback="New buyers: stage entries according to risk tolerance and volatility.",
         )
 
         if "confidence" not in payload:
-            adjustment = (
-                str(payload.get("confidence_adjustment", "")).strip().lower()
-            )
-            payload["confidence"] = CONFIDENCE_FROM_ADJUSTMENT.get(
-                adjustment, "Medium"
-            )
+            adjustment = str(payload.get("confidence_adjustment", "")).strip().lower()
+            derived = CONFIDENCE_FROM_ADJUSTMENT.get(adjustment)
+            if derived:
+                payload["confidence"] = derived
 
         return payload
 
@@ -142,18 +140,19 @@ class FinalReportOutput(BaseModel):
 
     @field_validator("verdict", mode="before")
     @classmethod
-    def _normalize_verdict(cls, value: str) -> str:
+    def _normalize_verdict(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         normalized = str(value).strip().upper().replace("-", " ")
-        return " ".join(normalized.split())
+        return " ".join(normalized.split()) or None
 
     @field_validator("confidence", mode="before")
     @classmethod
-    def _normalize_confidence(cls, value: str) -> str:
-        """[field_validator mode=before] Capitalise confidence level to match Literal.
-
-        Stage: runs per-field before type coercion.
-        """
-        return str(value).strip().capitalize()
+    def _normalize_confidence(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip().capitalize()
+        return text or None
 
 
 def _strip_and_cap(values: list[str], *, max_items: int) -> list[str]:

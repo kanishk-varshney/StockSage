@@ -150,7 +150,9 @@ def serialize_structured_output(task_name: str | None, model: BaseModel) -> str:
             f"Company Type: {model.company_type}",
         ]
         lines.extend(f"Validated File: {item}" for item in model.validated_files[:10])
-        lines.extend(f"Missing/Invalid File: {item}" for item in model.missing_or_invalid_files[:10])
+        lines.extend(
+            f"Missing/Invalid File: {item}" for item in model.missing_or_invalid_files[:10]
+        )
         lines.extend(f"Critical Issue: {item}" for item in model.critical_issues[:10])
         lines.extend(f"Warning: {item}" for item in model.warnings[:10])
         lines.extend(
@@ -216,7 +218,7 @@ def serialize_structured_output(task_name: str | None, model: BaseModel) -> str:
             *[f"Not Ideal For: {line}" for line in model.not_ideal_for[:3]],
             f"Guidance For Existing Holders: {model.guidance_for_existing_holders}",
             f"Guidance For New Buyers: {model.guidance_for_new_buyers}",
-            f"VERDICT: {model.verdict} | Confidence: {model.confidence}",
+            f"VERDICT: {model.verdict or 'INCONCLUSIVE'} | Confidence: {model.confidence or 'N/A'}",
             *_serialize_citations(model.citations),
         ]
         return "\n".join(lines)

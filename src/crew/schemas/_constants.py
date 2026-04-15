@@ -6,9 +6,7 @@ import re
 
 # ── Data Sanity ────────────────────────────────────────────────────────────────
 
-DATA_SANITY_SUMMARY_RE = re.compile(
-    r"^\d+ hard blocks?, \d+ soft blocks? identified\.?$"
-)
+DATA_SANITY_SUMMARY_RE = re.compile(r"^\d+ hard blocks?, \d+ soft blocks? identified\.?$")
 FILE_STATUS_RE = re.compile(r"^[A-Za-z0-9_.-]+ -> [A-Za-z0-9_. -]+$")
 FILE_LEVEL_ISSUE_RE = re.compile(r"^[A-Za-z0-9_.-]+ -> .+$")
 

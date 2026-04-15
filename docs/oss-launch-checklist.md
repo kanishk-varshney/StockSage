@@ -10,11 +10,11 @@
 
 Create and label these issues after publishing:
 
-1. Add integration test for `DownloadPipeline` failure branches with mocked fetchers.
-2. Add screenshot/GIF capture script and embed final assets in README.
+1. ~~Add integration test for `DownloadPipeline` failure branches with mocked fetchers.~~ (See `tests/core/test_download_pipeline.py`.)
+2. ~~Add screenshot/GIF capture script and embed final assets in README.~~ (Script: `scripts/capture_readme_assets.sh`; GIF still optional.)
 3. Add provider smoke checks for OpenAI/Gemini/Groq in `src/core/config/check.py`.
 4. Add pagination/collapse behavior for long UI analysis cards.
-5. Add typed API response model for `/stream` and `/stream/mock` event payload docs.
+5. ~~Add typed API response model for `/stream` and `/stream/mock` event payload docs.~~ (See `docs/stream-api.md` — documents events and logical `LogEntry` mapping; payloads remain HTML.)
 
 ## Publishing notes
 

@@ -150,14 +150,29 @@ def _mock_raw_payloads(symbol: str) -> dict[SubStage, str]:
 
 def _build_mock_log_entries(symbol: str) -> list[LogEntry]:
     entries: list[LogEntry] = [
-        LogEntry(stage=ProcessingStage.STARTING, status_type=StatusType.IN_PROGRESS,
-                 message=f"Processing symbol: {symbol}", symbol=symbol),
-        LogEntry(stage=ProcessingStage.VALIDATING, substage=SubStage.VALIDATING_SYMBOL,
-                 status_type=StatusType.SUCCESS, message="validating symbol (success)", symbol=symbol),
+        LogEntry(
+            stage=ProcessingStage.STARTING,
+            status_type=StatusType.IN_PROGRESS,
+            message=f"Processing symbol: {symbol}",
+            symbol=symbol,
+        ),
+        LogEntry(
+            stage=ProcessingStage.VALIDATING,
+            substage=SubStage.VALIDATING_SYMBOL,
+            status_type=StatusType.SUCCESS,
+            message="validating symbol (success)",
+            symbol=symbol,
+        ),
     ]
 
-    entries.append(LogEntry(stage=ProcessingStage.DOWNLOADING_DATA, status_type=StatusType.IN_PROGRESS,
-                            message="Downloading data...", symbol=symbol))
+    entries.append(
+        LogEntry(
+            stage=ProcessingStage.DOWNLOADING_DATA,
+            status_type=StatusType.IN_PROGRESS,
+            message="Downloading data...",
+            symbol=symbol,
+        )
+    )
 
     download_substages = [
         (SubStage.DOWNLOADING_COMPANY_PROFILE, "downloading company profile"),
@@ -170,11 +185,24 @@ def _build_mock_log_entries(symbol: str) -> list[LogEntry]:
         (SubStage.SAVING_DATA, "saving data"),
     ]
     for substage, msg in download_substages:
-        entries.append(LogEntry(stage=ProcessingStage.DOWNLOADING_DATA, substage=substage,
-                                status_type=StatusType.SUCCESS, message=msg, symbol=symbol))
+        entries.append(
+            LogEntry(
+                stage=ProcessingStage.DOWNLOADING_DATA,
+                substage=substage,
+                status_type=StatusType.SUCCESS,
+                message=msg,
+                symbol=symbol,
+            )
+        )
 
-    entries.append(LogEntry(stage=ProcessingStage.ANALYZING, status_type=StatusType.IN_PROGRESS,
-                            message="Processing...", symbol=symbol))
+    entries.append(
+        LogEntry(
+            stage=ProcessingStage.ANALYZING,
+            status_type=StatusType.IN_PROGRESS,
+            message="Processing...",
+            symbol=symbol,
+        )
+    )
 
     raw_map = _mock_raw_payloads(symbol)
     analysis_substages = [
@@ -187,10 +215,24 @@ def _build_mock_log_entries(symbol: str) -> list[LogEntry]:
         SubStage.GENERATING_INVESTMENT_REPORT,
     ]
     for substage in analysis_substages:
-        entries.append(LogEntry(stage=ProcessingStage.ANALYZING, substage=substage,
-                                status_type=StatusType.IN_PROGRESS, message=None, symbol=symbol))
-        entries.append(LogEntry(stage=ProcessingStage.ANALYZING, substage=substage,
-                                status_type=StatusType.SUCCESS, message=raw_map[substage], symbol=symbol))
+        entries.append(
+            LogEntry(
+                stage=ProcessingStage.ANALYZING,
+                substage=substage,
+                status_type=StatusType.IN_PROGRESS,
+                message=None,
+                symbol=symbol,
+            )
+        )
+        entries.append(
+            LogEntry(
+                stage=ProcessingStage.ANALYZING,
+                substage=substage,
+                status_type=StatusType.SUCCESS,
+                message=raw_map[substage],
+                symbol=symbol,
+            )
+        )
     return entries
 
 

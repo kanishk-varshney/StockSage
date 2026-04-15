@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import AsyncGenerator, Generator
 from typing import TypeVar
 
-from src.core.config.enums import ProcessingStage, SubStage, StatusType
+from src.core.config.enums import ProcessingStage, StatusType, SubStage
 from src.core.config.models import LogEntry
 from src.core.processing.download_pipeline import DownloadPipeline
 from src.core.validation.validation import validate_symbol
@@ -47,9 +47,16 @@ class StockProcessor:
     def __init__(self, symbol: str):
         self.symbol = symbol.upper()
 
-    def _log(self, stage: ProcessingStage, substage: SubStage | None = None,
-             status: StatusType = StatusType.IN_PROGRESS, message: str | None = None) -> LogEntry:
-        return LogEntry(stage=stage, substage=substage, status_type=status, message=message, symbol=self.symbol)
+    def _log(
+        self,
+        stage: ProcessingStage,
+        substage: SubStage | None = None,
+        status: StatusType = StatusType.IN_PROGRESS,
+        message: str | None = None,
+    ) -> LogEntry:
+        return LogEntry(
+            stage=stage, substage=substage, status_type=status, message=message, symbol=self.symbol
+        )
 
     def _validate(self) -> Generator[LogEntry, None, bool]:
         """Validate the stock symbol format and existence (sync — fast, no I/O)."""
@@ -58,7 +65,12 @@ class StockProcessor:
 
         result = validate_symbol(self.symbol)
         if not result.is_valid:
-            yield self._log(ProcessingStage.VALIDATING, SubStage.VALIDATING_SYMBOL, StatusType.FAILED, result.error_message)
+            yield self._log(
+                ProcessingStage.VALIDATING,
+                SubStage.VALIDATING_SYMBOL,
+                StatusType.FAILED,
+                result.error_message,
+            )
             return False
 
         yield self._log(ProcessingStage.VALIDATING, SubStage.VALIDATING_SYMBOL, StatusType.SUCCESS)
@@ -72,10 +84,7 @@ class StockProcessor:
         async for entry in _stream_sync_gen(pipeline.run()):
             yield entry
 
-        if pipeline.stock_data is None or not pipeline.stock_data.is_valid():
-            self._download_ok = False
-        else:
-            self._download_ok = True
+        self._download_ok = pipeline.critical_ok
 
     async def _analyze(self) -> AsyncGenerator[LogEntry, None]:
         """Run CrewAI-powered analysis on downloaded data."""
@@ -118,7 +127,13 @@ class StockProcessor:
             async for entry in self._analyze():
                 yield entry
             if not self._pipeline.success:
-                yield self._log(ProcessingStage.COMPLETE, status=StatusType.FAILED, message=f"Analysis failed for {self.symbol}")
+                yield self._log(
+                    ProcessingStage.COMPLETE,
+                    status=StatusType.FAILED,
+                    message=f"Analysis failed for {self.symbol}",
+                )
                 return
 
-            yield self._log(ProcessingStage.COMPLETE, message=f"Successfully processed {self.symbol}")
+            yield self._log(
+                ProcessingStage.COMPLETE, message=f"Successfully processed {self.symbol}"
+            )

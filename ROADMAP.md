@@ -16,12 +16,11 @@ StockSage is a local-first, run-it-yourself analysis tool. It is not a hosted Sa
 
 ## Near-term priorities
 
-1. Extend integration tests for download and Crew failure edge cases.
-2. Add lightweight lint/type checks in CI.
-3. Improve UX discoverability with real screenshots/GIF in README.
-4. Add `good first issue` backlog and contributor onboarding issues.
+1. ~~Extend integration tests for download and Crew failure edge cases.~~ (baseline in `tests/core/test_download_pipeline.py`, `tests/crew/test_pipeline_failure.py`; expand as needed.)
+2. ~~Add lightweight lint/type checks in CI.~~ (scoped `mypy` on structured-output modules; widen coverage over time.)
+3. Improve UX discoverability with real screenshots/GIF in README (assets + `scripts/capture_readme_assets.sh`; optional GIF).
+4. Add `good first issue` backlog and contributor onboarding issues (GitHub labels/issues after publish — see `docs/oss-launch-checklist.md`).
 
-## License stance (v0.x)
+## License
 
-The project currently stays on the Unlicense for maximum permissiveness during early iteration.  
-If contributor or adopter needs change, maintainers may switch to MIT or Apache-2.0 in a future minor release with clear release notes.
+Released under the MIT License.

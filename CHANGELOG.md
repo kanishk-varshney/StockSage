@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- `docs/stream-api.md` — SSE event shapes for `/stream` and `/stream/mock`.
+- `scripts/capture_readme_assets.sh` — helper to refresh README screenshots (macOS-friendly).
+- `.github/dependabot.yml` — weekly pip and GitHub Actions updates.
+- Scoped `mypy` in CI and `make typecheck` for `src.crew.schemas._base` and `src.crew.structured_output`.
+- Tests: `DownloadPipeline` failure/success branches (`tests/core/test_download_pipeline.py`); crew kickoff failure (`tests/crew/test_pipeline_failure.py`).
+- Schema tests for `normalize_payload_lists` via `ValuationOutput` validation.
+
+### Changed
+- Packaging: `hatchling` build backend + `src` as an installable package so `uv sync` / `pip install -e .` expose the `src.*` imports (tests and CI rely on this).
+- `DownloadPipeline` sets `critical_ok` only after successful critical steps **including** CSV save; `StockProcessor` uses `critical_ok` for `_download_ok` (fixes aborted financials/save still proceeding to analysis).
+- Docker image builds with `uv sync --frozen --no-dev` and `uv.lock` for reproducible runtime deps.
+- CI installs with `uv sync --frozen --extra dev` to match local lockfile workflows.
+
+### Fixed
+- README Quickstart clone URL now points at the canonical GitHub repo.
+
 ## [0.1.0] - 2026-04-06
 
 ### Added

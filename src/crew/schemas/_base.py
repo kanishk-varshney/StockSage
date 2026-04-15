@@ -6,8 +6,11 @@ logic DRY without hiding domain-specific semantics.
 
 from __future__ import annotations
 
+import json
 import re
-from typing import Any
+import typing
+
+from pydantic import BaseModel
 
 _BRACKET_PREFIX_RE = re.compile(r"^\s*\[.*?\]\s*[-–—]?\s*")
 _COUNT_PATTERN_RE = re.compile(
@@ -17,6 +20,48 @@ _COUNT_PATTERN_RE = re.compile(
 )
 
 from src.crew.schemas._constants import DATA_SANITY_REQUIRED_FILES
+
+# ── Generic LLM list normalization ─────────────────────────────────────────────
+
+
+def normalize_payload_lists(cls: type[BaseModel], payload: dict) -> dict:
+    """Auto-fix two common LLM malformations for list-typed fields.
+
+    1. JSON-encoded strings  →  real lists   (``"[...]"`` → ``[...]``)
+    2. Dict items in ``list[str]`` fields  →  extracted string values
+       (``{"text": "..."} → "..."``)
+
+    Uses ``cls.model_fields`` for discovery — no hardcoded field names.
+    """
+    for name, info in cls.model_fields.items():
+        val = payload.get(name)
+        if val is None:
+            continue
+
+        if isinstance(val, str) and val.strip().startswith("["):
+            try:
+                val = json.loads(val)
+                payload[name] = val
+            except (json.JSONDecodeError, ValueError):
+                continue
+
+        origin = typing.get_origin(info.annotation)
+        args = typing.get_args(info.annotation)
+        if origin is list and args and args[0] is str and isinstance(val, list):
+            payload[name] = [_flatten_to_str(item) for item in val]
+
+    return payload
+
+
+def _flatten_to_str(item: object) -> str:
+    """Extract a displayable string from any LLM item shape."""
+    if isinstance(item, str):
+        return item
+    if isinstance(item, dict):
+        parts = [str(v).strip() for v in item.values() if isinstance(v, str) and str(v).strip()]
+        return " — ".join(parts) if parts else str(item)
+    return str(item)
+
 
 # ── Summary / text coercion ────────────────────────────────────────────────────
 

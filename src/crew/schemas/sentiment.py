@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from src.crew.schemas._base import (
     coerce_summary_text,
+    normalize_payload_lists,
     normalize_sentiment_signal,
     strip_bracket_prefix,
     strip_count_patterns,
@@ -44,20 +45,18 @@ class SentimentOutput(BaseModel):
         if not isinstance(value, dict):
             return value
         payload = dict(value)
+        normalize_payload_lists(cls, payload)
 
         payload["summary"] = coerce_summary_text(
             payload.get("summary"),
-            fallback="Market expectations are stable with mixed sentiment "
-            "pressure.",
+            fallback="Market expectations are stable with mixed sentiment pressure.",
         )
 
         payload["analyst_consensus"] = coerce_summary_text(
             payload.get("analyst_consensus"), fallback=""
         )
 
-        payload["sentiment_signal"] = normalize_sentiment_signal(
-            payload.get("sentiment_signal")
-        )
+        payload["sentiment_signal"] = normalize_sentiment_signal(payload.get("sentiment_signal"))
         return payload
 
     # ── Field validators ───────────────────────────────────────────────────
@@ -107,13 +106,10 @@ class SentimentOutput(BaseModel):
 
     @field_validator("news")
     @classmethod
-    def _validate_news_length(
-        cls, values: list[CitationItem]
-    ) -> list[CitationItem]:
+    def _validate_news_length(cls, values: list[CitationItem]) -> list[CitationItem]:
         """[field_validator] Cap news items at 5.
 
         Stage: runs per-field after parsing.
         Behaviour: silently truncates; never raises.
         """
         return values[:5]
-

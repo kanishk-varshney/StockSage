@@ -1,9 +1,25 @@
+[build-system]
+requires = ["hatchling>=1.26.0"]
+build-backend = "hatchling.build"
+
 [project]
 name = "stocksage"
 version = "0.1.0"
 description = "Local-first agentic stock analysis with FastAPI + CrewAI"
 readme = "README.md"
 requires-python = ">=3.13"
+keywords = ["stocks", "finance", "AI", "agents", "crewai", "llm", "analysis", "fastapi"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Framework :: FastAPI",
+]
 dependencies = [
     "crewai[tools]>=1.9.0",
     "fastapi>=0.128.0",
@@ -14,22 +30,38 @@ dependencies = [
     "pandas>=3.0.0",
     "python-dotenv>=1.1.1",
     "pytrends>=4.9.2",
+    "slowapi>=0.1.9",
     "uvicorn>=0.40.0",
     "yfinance>=1.1.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/kanishk-varshney/StockSage"
+Documentation = "https://kanishk-varshney.github.io/StockSage"
+"Bug Tracker" = "https://github.com/kanishk-varshney/StockSage/issues"
+Changelog = "https://github.com/kanishk-varshney/StockSage/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 notebook = [
     "jupyter>=1.1.1",
 ]
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.6.0",
+]
 dev = [
+    "bandit>=1.8.0",
+    "mypy>=1.15.0",
+    "pip-audit>=2.9.0",
+    "pre-commit>=4.2.0",
     "pytest>=8.4.0",
+    "pytest-cov>=6.1.0",
     "ruff>=0.9.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q --cov=src --cov-report=term-missing --cov-fail-under=70"
 
 [tool.ruff]
 line-length = 100
@@ -37,4 +69,18 @@ target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
-ignore = ["E501", "E402", "E741", "F401", "F541", "I001", "W293"]
+ignore = ["E501", "E402", "E741", "F541", "W293"]
+
+[tool.mypy]
+python_version = "3.13"
+explicit_package_bases = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# CrewAI uses heavy decorator + metaclass magic that mypy cannot statically analyze.
+# Errors here are false positives from missing third-party stubs, not real bugs.
+module = "src.crew.crew"
+ignore_errors = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]

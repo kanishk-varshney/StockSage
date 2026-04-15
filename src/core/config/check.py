@@ -52,7 +52,9 @@ def _check_api_keys_for_model(label: str, model: str) -> list[str]:
     errors: list[str] = []
     model = (model or "").strip()
     if not model:
-        errors.append(f"{label} is empty; set LLM_MODEL (e.g. ollama/llama3.1:8b or openai/gpt-4o-mini).")
+        errors.append(
+            f"{label} is empty; set LLM_MODEL (e.g. ollama/llama3.1:8b or openai/gpt-4o-mini)."
+        )
         return errors
     if "/" not in model or not model.split("/", 1)[1].strip():
         errors.append(f"{label} must look like 'provider/model-name' (got {model!r}).")
@@ -73,9 +75,7 @@ def _check_api_keys_for_model(label: str, model: str) -> list[str]:
         return errors
 
     if not any(os.getenv(k) for k in keys):
-        errors.append(
-            f"{label} ({model}) expects one of these env vars set: {', '.join(keys)}."
-        )
+        errors.append(f"{label} ({model}) expects one of these env vars set: {', '.join(keys)}.")
     return errors
 
 
@@ -89,7 +89,9 @@ def main() -> int:
         print("Configuration issues:\n", file=sys.stderr)
         for e in errors:
             print(f"  - {e}", file=sys.stderr)
-        print("\nFix your `.env` (see `.env.example` and docs/model-providers.md).", file=sys.stderr)
+        print(
+            "\nFix your `.env` (see `.env.example` and docs/model-providers.md).", file=sys.stderr
+        )
         return 1
 
     print("Configuration OK.")

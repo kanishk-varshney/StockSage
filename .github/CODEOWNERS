@@ -1,0 +1,9 @@
+# Default owner for everything
+* @kanishk-varshney
+
+# Agent/crew logic — extra attention for prompt engineering changes
+src/crew/config/     @kanishk-varshney
+src/crew/schemas/    @kanishk-varshney
+
+# CI changes require maintainer review
+.github/             @kanishk-varshney

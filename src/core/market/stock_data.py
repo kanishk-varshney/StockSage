@@ -142,7 +142,9 @@ class StockData:
 
     @property
     def company_summary(self) -> str:
-        name = self.company_info.get("longName") or self.company_info.get("shortName") or self.symbol
+        name = (
+            self.company_info.get("longName") or self.company_info.get("shortName") or self.symbol
+        )
         sector = self.company_info.get("sector", "N/A")
         market_cap = _format_market_cap(self.company_info.get("marketCap"))
         return f"{self.symbol}: {name} | {sector} | Market Cap: {market_cap}"

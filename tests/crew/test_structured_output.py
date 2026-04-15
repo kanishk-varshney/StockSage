@@ -4,10 +4,9 @@ from types import SimpleNamespace
 
 from src.crew.structured_output import (
     output_model_for_task,
-    validate_task_output,
     serialize_structured_output,
+    validate_task_output,
 )
-
 
 # ── output_model_for_task ──────────────────────────────────────────────────────
 
@@ -58,14 +57,16 @@ def test_validate_returns_none_for_empty_output():
 def test_serialize_valuation_output():
     from src.crew.schemas import ValuationOutput
 
-    model = ValuationOutput.model_validate({
-        "summary": "Valuation appears fair relative to peers.",
-        "metrics": [
-            {"label": "P/E", "value": "22.1x", "source": "company_info.csv"},
-        ],
-        "implications": ["Growth expectations priced into current valuation."],
-        "citations": [],
-    })
+    model = ValuationOutput.model_validate(
+        {
+            "summary": "Valuation appears fair relative to peers.",
+            "metrics": [
+                {"label": "P/E", "value": "22.1x", "source": "company_info.csv"},
+            ],
+            "implications": ["Growth expectations priced into current valuation."],
+            "citations": [],
+        }
+    )
     text = serialize_structured_output("analyze_valuation_ratios", model)
     assert "Structured Summary:" in text
     assert "P/E" in text

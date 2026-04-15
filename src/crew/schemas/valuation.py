@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from src.crew.schemas._base import coerce_summary_text
+from src.crew.schemas._base import coerce_summary_text, normalize_payload_lists
 from src.crew.schemas._items import CitationItem, MetricItem
 
 
@@ -34,6 +34,7 @@ class ValuationOutput(BaseModel):
         if not isinstance(value, dict):
             return value
         payload = dict(value)
+        normalize_payload_lists(cls, payload)
         payload["summary"] = coerce_summary_text(
             payload.get("summary"),
             fallback="Valuation appears fair based on available inputs.",

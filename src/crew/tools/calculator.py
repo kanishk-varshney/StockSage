@@ -41,7 +41,7 @@ class FinancialCalculatorTool(BaseTool):
             handler = _METRIC_HANDLERS.get(metric)
             if not handler:
                 return f"Unknown metric '{metric}'. Supported: {', '.join(_METRIC_HANDLERS)}"
-            value = handler(**kwargs)
+            value = handler(**kwargs)  # type: ignore[operator]
             return f"{metric} = {value}"
         except Exception as e:
             return f"Error calculating {metric}: {e}"
@@ -74,36 +74,47 @@ def _safe_div(a: float, b: float, label: str = "value") -> float:
 def _pe_ratio(price: float, earnings_per_share: float, **_: Any) -> float:
     return _safe_div(price, earnings_per_share, "P/E ratio")
 
+
 def _pb_ratio(price: float, book_value_per_share: float, **_: Any) -> float:
     return _safe_div(price, book_value_per_share, "P/B ratio")
+
 
 def _ps_ratio(price: float, revenue_per_share: float, **_: Any) -> float:
     return _safe_div(price, revenue_per_share, "P/S ratio")
 
+
 def _ev_ebitda(enterprise_value: float, ebitda: float, **_: Any) -> float:
     return _safe_div(enterprise_value, ebitda, "EV/EBITDA")
+
 
 def _peg_ratio(pe_ratio: float, earnings_growth_rate: float, **_: Any) -> float:
     return _safe_div(pe_ratio, earnings_growth_rate, "PEG ratio")
 
+
 def _roe(net_income: float, shareholders_equity: float, **_: Any) -> str:
     return f"{_safe_div(net_income, shareholders_equity, 'ROE') * 100:.2f}%"
+
 
 def _roa(net_income: float, total_assets: float, **_: Any) -> str:
     return f"{_safe_div(net_income, total_assets, 'ROA') * 100:.2f}%"
 
+
 def _debt_to_equity(total_debt: float, shareholders_equity: float, **_: Any) -> float:
     return _safe_div(total_debt, shareholders_equity, "Debt-to-Equity")
 
+
 def _current_ratio(current_assets: float, current_liabilities: float, **_: Any) -> float:
     return _safe_div(current_assets, current_liabilities, "Current Ratio")
+
 
 def _gross_margin(revenue: float, cost_of_goods_sold: float, **_: Any) -> str:
     margin = (float(revenue) - float(cost_of_goods_sold)) / float(revenue)
     return f"{round(margin * 100, 2)}%"
 
+
 def _net_margin(net_income: float, revenue: float, **_: Any) -> str:
     return f"{_safe_div(net_income, revenue, 'Net Margin') * 100:.2f}%"
+
 
 def _operating_margin(operating_income: float, revenue: float, **_: Any) -> str:
     return f"{_safe_div(operating_income, revenue, 'Operating Margin') * 100:.2f}%"
@@ -217,7 +228,9 @@ def _graham_number(earnings_per_share: float, book_value_per_share: float, **_: 
     return f"Graham Number: ${graham:,.2f}/share (based on EPS=${eps:.2f}, Book Value=${bvps:.2f})"
 
 
-def _relative_valuation(earnings_per_share: float, sector_pe: float, market_pe: float, **_: Any) -> str:
+def _relative_valuation(
+    earnings_per_share: float, sector_pe: float, market_pe: float, **_: Any
+) -> str:
     """Fair value estimate based on sector and market average P/E multiples."""
     eps = float(earnings_per_share)
     s_pe = float(sector_pe)
@@ -243,8 +256,8 @@ def _beta(stock_prices: Any, market_prices: Any, **_: Any) -> float:
     min_len = min(len(sp), len(mp))
     if min_len < 3:
         raise ValueError("Need at least 3 price points for beta")
-    sr = np.diff(sp[:min_len]) / sp[:min_len - 1]
-    mr = np.diff(mp[:min_len]) / mp[:min_len - 1]
+    sr = np.diff(sp[:min_len]) / sp[: min_len - 1]
+    mr = np.diff(mp[:min_len]) / mp[: min_len - 1]
     cov = np.cov(sr, mr)
     if cov[1, 1] == 0:
         return 0.0

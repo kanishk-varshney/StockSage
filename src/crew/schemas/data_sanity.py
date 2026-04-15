@@ -12,6 +12,7 @@ from src.crew.schemas._base import (
     coerce_summary_text,
     deterministic_data_sanity_file_statuses,
     extract_symbol_from_text,
+    normalize_payload_lists,
 )
 from src.crew.schemas._constants import (
     DATA_SANITY_SUMMARY_RE,
@@ -26,16 +27,14 @@ class DataSanityOutput(BaseModel):
 
     summary: str = Field(min_length=1)
     gate_status: Literal["PASS", "PASS_WITH_SKIPS", "FAIL"]
-    market_context: Literal["US", "India"]
-    company_type: Literal["Bank", "Financial", "Non-Financial"]
+    market_context: Literal["US", "India"] = "US"
+    company_type: Literal["Bank", "Financial", "Non-Financial"] = "Non-Financial"
     validated_files: list[str] = Field(default_factory=list)
     missing_or_invalid_files: list[str] = Field(default_factory=list)
     critical_issues: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     ratio_applicability: list[ApplicabilityItem] = Field(default_factory=list)
-    valuation_model_applicability: list[ApplicabilityItem] = Field(
-        default_factory=list
-    )
+    valuation_model_applicability: list[ApplicabilityItem] = Field(default_factory=list)
 
     # ── Pre-normalisation ──────────────────────────────────────────────────
 
@@ -53,12 +52,11 @@ class DataSanityOutput(BaseModel):
         if not isinstance(value, dict):
             return value
         payload = dict(value)
+        normalize_payload_lists(cls, payload)
 
         active_symbol = os.getenv(
             "STOCKSAGE_ACTIVE_SYMBOL", ""
-        ).strip().upper() or extract_symbol_from_text(
-            str(payload.get("summary", "")) or ""
-        )
+        ).strip().upper() or extract_symbol_from_text(str(payload.get("summary", "")) or "")
 
         ratios = payload.get("ratio_applicability") or []
         models = payload.get("valuation_model_applicability") or []
@@ -76,9 +74,7 @@ class DataSanityOutput(BaseModel):
         )
         payload["summary"] = summary_text
         if not DATA_SANITY_SUMMARY_RE.fullmatch(summary_text):
-            payload["summary"] = (
-                f"{hard_count} hard blocks, {soft_count} soft blocks identified"
-            )
+            payload["summary"] = f"{hard_count} hard blocks, {soft_count} soft blocks identified"
 
         if hard_count > 0:
             payload["gate_status"] = "FAIL"
@@ -88,9 +84,7 @@ class DataSanityOutput(BaseModel):
             payload["gate_status"] = "PASS"
 
         if active_symbol:
-            det_validated, det_missing = deterministic_data_sanity_file_statuses(
-                active_symbol
-            )
+            det_validated, det_missing = deterministic_data_sanity_file_statuses(active_symbol)
             payload["validated_files"] = det_validated
             payload["missing_or_invalid_files"] = det_missing
         else:
@@ -101,9 +95,7 @@ class DataSanityOutput(BaseModel):
                 payload.get("missing_or_invalid_files"), default_status="missing"
             )
 
-        payload["critical_issues"] = _coerce_file_level_issues(
-            payload.get("critical_issues")
-        )
+        payload["critical_issues"] = _coerce_file_level_issues(payload.get("critical_issues"))
         payload["warnings"] = _coerce_file_level_issues(payload.get("warnings"))
         return payload
 
@@ -153,13 +145,10 @@ class DataSanityOutput(BaseModel):
             text = str(entry).strip()
             left = text.split(" -> ", 1)[0]
             if "." in left:
-                raise ValueError(
-                    "critical_issues and warnings must be file-level only."
-                )
+                raise ValueError("critical_issues and warnings must be file-level only.")
             if not FILE_LEVEL_ISSUE_RE.fullmatch(text):
                 raise ValueError(
-                    "critical_issues and warnings must match format: "
-                    "file_name -> issue"
+                    "critical_issues and warnings must match format: file_name -> issue"
                 )
         return values
 
@@ -186,7 +175,7 @@ class DataSanityOutput(BaseModel):
             expected = "PASS_WITH_SKIPS"
 
         if self.gate_status != expected:
-            self.gate_status = expected
+            self.gate_status = expected  # type: ignore[assignment]
 
         return self
 
@@ -194,9 +183,7 @@ class DataSanityOutput(BaseModel):
 # ── Module-private helpers ─────────────────────────────────────────────────────
 
 
-def _normalize_file_statuses(
-    values: object, *, default_status: str
-) -> list[str]:
+def _normalize_file_statuses(values: object, *, default_status: str) -> list[str]:
     if not isinstance(values, list):
         return []
     normalized: list[str] = []
@@ -204,9 +191,7 @@ def _normalize_file_statuses(
         text = str(item).strip()
         if not text:
             continue
-        normalized.append(
-            text if " -> " in text else f"{text} -> {default_status}"
-        )
+        normalized.append(text if " -> " in text else f"{text} -> {default_status}")
     return normalized
 
 

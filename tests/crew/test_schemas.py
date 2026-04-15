@@ -7,16 +7,10 @@ exist in the schema models. Tests for removed keyword-based validators
 
 from __future__ import annotations
 
-import os
-
-import pytest
-from pydantic import ValidationError
-
 from src.crew.schemas import (
     DataSanityOutput,
     FinalReportOutput,
     FinancialHealthOutput,
-    MetricItem,
     PerformanceOutput,
     ReviewOutput,
     SentimentOutput,
@@ -29,7 +23,6 @@ from src.crew.schemas._base import (
     strip_count_patterns,
     strip_explanatory_tail,
 )
-
 
 # ── coerce_summary_text ───────────────────────────────────────────────────────
 
@@ -87,7 +80,10 @@ class TestStripCountPatterns:
         assert strip_count_patterns("3 out of 5 analysts bullish") == "analysts bullish"
 
     def test_removes_n_analysts(self):
-        assert strip_count_patterns("Consensus among 12 analysts is positive") == "Consensus among is positive"
+        assert (
+            strip_count_patterns("Consensus among 12 analysts is positive")
+            == "Consensus among is positive"
+        )
 
     def test_preserves_meaningful_digits(self):
         result = strip_count_patterns("Q4 outlook positive")
@@ -108,39 +104,69 @@ class TestNormalizeSentimentSignal:
         assert normalize_sentiment_signal("unknown") == "Neutral"
 
 
+# ── normalize_payload_lists (via ValuationOutput) ─────────────────────────────
+
+
+class TestNormalizePayloadLists:
+    def test_json_string_list_for_list_str(self):
+        model = ValuationOutput.model_validate(
+            {
+                "summary": "Valuation summary.",
+                "implications": '["First implication.", "Second."]',
+            }
+        )
+        assert model.implications == ["First implication.", "Second."]
+
+    def test_dict_items_flattened_for_list_str(self):
+        model = ValuationOutput.model_validate(
+            {
+                "summary": "Valuation summary.",
+                "implications": [{"text": "hello"}, {"note": "world"}],
+            }
+        )
+        assert model.implications[0] == "hello"
+        assert model.implications[1] == "world"
+
+
 # ── DataSanityOutput ──────────────────────────────────────────────────────────
 
 
 class TestDataSanityOutput:
     def test_pass_gate_status(self):
-        model = DataSanityOutput.model_validate({
-            "summary": "anything",
-            "gate_status": "PASS",
-            "market_context": "US",
-            "company_type": "Non-Financial",
-            "ratio_applicability": [{"name": "PE", "status": "VALID"}],
-        })
+        model = DataSanityOutput.model_validate(
+            {
+                "summary": "anything",
+                "gate_status": "PASS",
+                "market_context": "US",
+                "company_type": "Non-Financial",
+                "ratio_applicability": [{"name": "PE", "status": "VALID"}],
+            }
+        )
         assert model.gate_status == "PASS"
         assert "0 hard blocks" in model.summary
 
     def test_fail_gate_from_hard_block(self):
-        model = DataSanityOutput.model_validate({
-            "summary": "anything",
-            "gate_status": "PASS",
-            "market_context": "US",
-            "company_type": "Non-Financial",
-            "ratio_applicability": [{"name": "PE", "status": "HARD_BLOCKED"}],
-        })
+        model = DataSanityOutput.model_validate(
+            {
+                "summary": "anything",
+                "gate_status": "PASS",
+                "market_context": "US",
+                "company_type": "Non-Financial",
+                "ratio_applicability": [{"name": "PE", "status": "HARD_BLOCKED"}],
+            }
+        )
         assert model.gate_status == "FAIL"
 
     def test_pass_with_skips_from_soft_block(self):
-        model = DataSanityOutput.model_validate({
-            "summary": "anything",
-            "gate_status": "PASS",
-            "market_context": "US",
-            "company_type": "Non-Financial",
-            "ratio_applicability": [{"name": "PE", "status": "SOFT_BLOCKED"}],
-        })
+        model = DataSanityOutput.model_validate(
+            {
+                "summary": "anything",
+                "gate_status": "PASS",
+                "market_context": "US",
+                "company_type": "Non-Financial",
+                "ratio_applicability": [{"name": "PE", "status": "SOFT_BLOCKED"}],
+            }
+        )
         assert model.gate_status == "PASS_WITH_SKIPS"
 
 
@@ -166,8 +192,7 @@ class TestValuationOutput:
 
     def test_metrics_capped_at_5(self):
         metrics = [
-            {"label": f"M{i}", "value": "1x", "source": "company_info.csv"}
-            for i in range(10)
+            {"label": f"M{i}", "value": "1x", "source": "company_info.csv"} for i in range(10)
         ]
         model = ValuationOutput.model_validate(self._valid_payload(metrics=metrics))
         assert len(model.metrics) <= 5
@@ -200,9 +225,7 @@ class TestPerformanceOutput:
 
     def test_risk_notes_capped_at_3(self):
         model = PerformanceOutput.model_validate(
-            self._valid_payload(
-                risk_notes=["Note 1", "Note 2", "Note 3", "Note 4", "Note 5"]
-            )
+            self._valid_payload(risk_notes=["Note 1", "Note 2", "Note 3", "Note 4", "Note 5"])
         )
         assert len(model.risk_notes) <= 3
 
@@ -250,9 +273,7 @@ class TestSentimentOutput:
             "summary": "Market expectations are stable with mixed sentiment pressure.",
             "sentiment_signal": "Neutral",
             "analyst_consensus": "Consensus remains neutral and stable",
-            "key_points": [
-                "Analyst consensus shows institutional flow stability."
-            ],
+            "key_points": ["Analyst consensus shows institutional flow stability."],
             "news": [],
             "citations": [],
         }
@@ -265,17 +286,13 @@ class TestSentimentOutput:
 
     def test_consensus_strips_bracket_prefix_and_counts(self):
         model = SentimentOutput.model_validate(
-            self._valid_payload(
-                analyst_consensus="[POSITIVE] - 3 out of 5 analysts lean bullish"
-            )
+            self._valid_payload(analyst_consensus="[POSITIVE] - 3 out of 5 analysts lean bullish")
         )
         assert not any(c.isdigit() for c in model.analyst_consensus)
         assert "bullish" in model.analyst_consensus.lower()
 
     def test_unknown_signal_defaults_to_neutral(self):
-        model = SentimentOutput.model_validate(
-            self._valid_payload(sentiment_signal="unknown")
-        )
+        model = SentimentOutput.model_validate(self._valid_payload(sentiment_signal="unknown"))
         assert model.sentiment_signal == "Neutral"
 
     def test_key_points_capped_at_4(self):
@@ -305,9 +322,7 @@ class TestReviewOutput:
         assert model.confidence_adjustment == "Unchanged"
 
     def test_confidence_alias_normalization(self):
-        model = ReviewOutput.model_validate(
-            self._valid_payload(confidence_adjustment="increased")
-        )
+        model = ReviewOutput.model_validate(self._valid_payload(confidence_adjustment="increased"))
         assert model.confidence_adjustment == "Increase"
 
     def test_confirmed_cleared_when_issues_present(self):
@@ -321,9 +336,7 @@ class TestReviewOutput:
 
     def test_confirmed_findings_capped_at_3(self):
         model = ReviewOutput.model_validate(
-            self._valid_payload(
-                confirmed_findings=["a", "b", "c", "d"]
-            )
+            self._valid_payload(confirmed_findings=["a", "b", "c", "d"])
         )
         assert len(model.confirmed_findings) <= 3
 
@@ -355,9 +368,7 @@ class TestFinalReportOutput:
         assert model.confidence == "Medium"
 
     def test_verdict_normalization(self):
-        model = FinalReportOutput.model_validate(
-            self._valid_payload(verdict="strong-buy")
-        )
+        model = FinalReportOutput.model_validate(self._valid_payload(verdict="strong-buy"))
         assert model.verdict == "STRONG BUY"
 
     def test_confidence_from_adjustment_fallback(self):
@@ -376,8 +387,6 @@ class TestFinalReportOutput:
 
     def test_strengths_capped_at_4(self):
         model = FinalReportOutput.model_validate(
-            self._valid_payload(
-                strengths=["a", "b", "c", "d", "e", "f"]
-            )
+            self._valid_payload(strengths=["a", "b", "c", "d", "e", "f"])
         )
         assert len(model.strengths) <= 4

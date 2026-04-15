@@ -11,19 +11,51 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from src.app.mock_stream import stream_mock_logs
 from src.app.utils.formatters import format_log_entry
 from src.core.config.config import APP_MODE, DEV_STREAM_MODE, OUTPUT_DIR_PATH
-from src.core.config.enums import STAGE_REGISTRY, ProcessingStage, StatusType, get_total_pipeline_steps
+from src.core.config.enums import (
+    STAGE_REGISTRY,
+    ProcessingStage,
+    StatusType,
+    get_total_pipeline_steps,
+)
 from src.core.processing import StockProcessor
 
-app = FastAPI(title="StockSage")
+limiter = Limiter(key_func=get_remote_address)
+
+app = FastAPI(
+    title="StockSage",
+    description=(
+        "Local-first, multi-agent stock analysis. "
+        "Enter a ticker symbol to get a full investment report streamed live to your browser."
+    ),
+    version="0.1.0",
+    license_info={"name": "MIT", "url": "https://opensource.org/licenses/MIT"},
+    contact={"url": "https://github.com/kanishk-varshney/StockSage/issues"},
+)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 logger = logging.getLogger(__name__)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add standard security headers to every response."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -108,7 +140,10 @@ async def stream_logs(symbol: str):
             log_html = format_log_entry(log_entry)
             cached_messages.append(log_html)
 
-            if log_entry.stage == ProcessingStage.COMPLETE and log_entry.status_type == StatusType.FAILED:
+            if (
+                log_entry.stage == ProcessingStage.COMPLETE
+                and log_entry.status_type == StatusType.FAILED
+            ):
                 yield f"event: stream_error\ndata: {_public_error_message(symbol)}\n\n"
                 error_occurred = True
                 break
@@ -128,6 +163,7 @@ async def stream_logs(symbol: str):
 
 
 @app.get("/stream")
+@limiter.limit("10/minute")
 async def stream_symbol_logs(request: Request, symbol: str):
     """Stream log entries as Server-Sent Events."""
     return StreamingResponse(

@@ -1,0 +1,64 @@
+site_name: StockSage
+site_description: Local-first, multi-agent stock analysis with CrewAI + LiteLLM
+site_url: https://kanishk-varshney.github.io/StockSage
+repo_url: https://github.com/kanishk-varshney/StockSage
+repo_name: kanishk-varshney/StockSage
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+    - content.action.edit
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Local Setup: local-setup.md
+    - Model Providers: model-providers.md
+  - Architecture: architecture.md
+  - Self-Hosting: self-host.md
+  - API Reference: stream-api.md
+  - Examples:
+    - Output Preview: examples/output-preview.md
+    - Crew Output Guide: examples/crew-output-guide.md
+  - Contributing:
+    - Guide: contributing.md
+    - Code of Conduct: code-of-conduct.md
+    - Security: security.md
+    - Changelog: changelog.md
+    - Roadmap: roadmap.md
+
+docs_dir: docs
+
+plugins:
+  - search
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets:
+      base_path: [.]
+  - admonition
+  - attr_list
+  - md_in_html

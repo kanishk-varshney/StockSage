@@ -6,7 +6,7 @@
 2. `src/core/processing/processor.py` executes validate → download → analyze.
 3. `src/core/processing/download_pipeline.py` fetches data and persists CSV files.
 4. `src/crew/pipeline.py` runs CrewAI tasks and merges deterministic facts.
-5. `src/app/utils/formatters.py` converts log entries into UI-safe HTML blocks.
+5. `src/app/utils/formatters/` converts log entries into UI-safe HTML blocks (one module per analysis card).
 6. SSE stream pushes entries to browser (`src/app/static/js/main.js`).
 
 ## Module Boundaries

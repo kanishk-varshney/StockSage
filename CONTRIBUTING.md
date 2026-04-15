@@ -4,13 +4,13 @@ Thanks for helping improve StockSage. This project is **local-first**: contribut
 
 ## Before you start
 
-- Read [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
-- For security-sensitive reports, see [`SECURITY.md`](SECURITY.md).
+- Read [CODE_OF_CONDUCT.md](https://github.com/kanishk-varshney/StockSage/blob/main/CODE_OF_CONDUCT.md).
+- For security-sensitive reports, see [SECURITY.md](https://github.com/kanishk-varshney/StockSage/blob/main/SECURITY.md).
 
 ## Development setup
 
 1. **Clone** the repository.
-2. **Install Python** `>=3.13` (see [`pyproject.toml`](pyproject.toml)).
+2. **Install Python** `>=3.13` (see `pyproject.toml`).
    - CI intentionally runs only Python 3.13 to keep one deterministic runtime and avoid provider/tooling drift across versions.
 3. **Install dependencies** (pick one):
 
@@ -34,7 +34,7 @@ Thanks for helping improve StockSage. This project is **local-first**: contribut
    cp .env.example .env
    ```
 
-   Set `LLM_MODEL` and any required API keys (see [`docs/model-providers.md`](docs/model-providers.md)).
+   Set `LLM_MODEL` and any required API keys (see [Model Providers](https://kanishk-varshney.github.io/StockSage/model-providers/)).
 
 5. **Validate config** (optional but recommended):
 
@@ -57,6 +57,14 @@ make lint
 ```
 
 Or: `python -m ruff check .`
+
+## Typecheck (scoped)
+
+CI runs `mypy` on structured-output modules only. Locally:
+
+```bash
+make typecheck
+```
 
 ## AI-assisted contributions
 

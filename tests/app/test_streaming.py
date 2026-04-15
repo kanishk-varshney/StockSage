@@ -34,7 +34,7 @@ def test_stream_logs_emits_complete_and_caches(monkeypatch, tmp_path):
     assert any("event: complete" in chunk for chunk in chunks)
     cache_messages = app_main._load_stream_cache("AAPL")
     assert len(cache_messages) == 1
-    assert "data-stage=\"starting\"" in cache_messages[0]
+    assert 'data-stage="starting"' in cache_messages[0]
 
 
 def test_stream_logs_sanitizes_errors(monkeypatch, tmp_path):

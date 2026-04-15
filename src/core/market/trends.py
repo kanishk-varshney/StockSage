@@ -7,8 +7,10 @@ from pytrends.request import TrendReq
 
 logger = logging.getLogger(__name__)
 
+
 class TrendsFetcher:
     """Fetches Google Trends interest-over-time data for a stock."""
+
     def __init__(self, keyword: str, timeframe: str = "today 12-m", geo="IN"):
         self._keyword = keyword
         self._timeframe = timeframe

@@ -55,7 +55,9 @@ class AnalysisPipeline:
         self.symbol = symbol
         self.success: bool = False
 
-    def _log(self, substage: SubStage | None, status: StatusType, message: str | None = None) -> LogEntry:
+    def _log(
+        self, substage: SubStage | None, status: StatusType, message: str | None = None
+    ) -> LogEntry:
         return LogEntry(
             stage=ProcessingStage.ANALYZING,
             substage=substage,
@@ -92,7 +94,9 @@ class AnalysisPipeline:
             from src.crew.crew import StockAnalysisCrew
 
             crew = StockAnalysisCrew().crew()
-            task_names = [getattr(t, "name", None) or f"task_{i}" for i, t in enumerate(crew.tasks, 1)]
+            task_names = [
+                getattr(t, "name", None) or f"task_{i}" for i, t in enumerate(crew.tasks, 1)
+            ]
             total = len(task_names)
             completed = 0
             loop = asyncio.get_running_loop()
@@ -104,9 +108,7 @@ class AnalysisPipeline:
                 nonlocal completed
                 done_name = task_names[completed]
                 completed += 1
-                loop.call_soon_threadsafe(
-                    progress_q.put_nowait, ("done", done_name, task_output)
-                )
+                loop.call_soon_threadsafe(progress_q.put_nowait, ("done", done_name, task_output))
                 if completed < total:
                     loop.call_soon_threadsafe(
                         progress_q.put_nowait, ("start", task_names[completed], None)
@@ -144,7 +146,8 @@ class AnalysisPipeline:
                             if substage not in started_substages:
                                 started_substages.add(substage)
                                 yield self._log(
-                                    substage, StatusType.IN_PROGRESS,
+                                    substage,
+                                    StatusType.IN_PROGRESS,
                                     f"{substage.display_name}...",
                                 )
                         elif event == "done":
@@ -163,10 +166,13 @@ class AnalysisPipeline:
 
                 except Exception as exc:
                     if _is_rate_limit_error(exc) and rate_limit_retries < _MAX_RATE_LIMIT_RETRIES:
-                        wait = _extract_retry_wait(exc) + random.uniform(*_RATE_LIMIT_JITTER_SECONDS)
+                        wait = _extract_retry_wait(exc) + random.uniform(
+                            *_RATE_LIMIT_JITTER_SECONDS
+                        )
                         rate_limit_retries += 1
                         yield self._log(
-                            None, StatusType.IN_PROGRESS,
+                            None,
+                            StatusType.IN_PROGRESS,
                             f"Rate limit hit. Retrying in {wait:.1f}s ({rate_limit_retries}/{_MAX_RATE_LIMIT_RETRIES})...",
                         )
                         await asyncio.sleep(wait)
@@ -178,13 +184,13 @@ class AnalysisPipeline:
 
             # Safety net: yield any tasks the callback/queue race may have missed
             for task_output in getattr(result, "tasks_output", None) or []:
-                task_name = getattr(task_output, "name", None)
-                substage = _TASK_SUBSTAGE_MAP.get(task_name)
+                task_name_str: str = getattr(task_output, "name", None) or ""
+                substage = _TASK_SUBSTAGE_MAP.get(task_name_str)
                 if not substage or substage in completed_substages:
                     continue
 
                 output_text = self._build_success_text(
-                    task_name, task_output, deterministic_facts
+                    task_name_str, task_output, deterministic_facts
                 )
                 if not output_text:
                     continue
@@ -196,7 +202,9 @@ class AnalysisPipeline:
                 report_facts = deterministic_facts.get("generate_investment_report", "")
                 raw_output = str(result).strip()
                 output_text = f"{report_facts}\n\n{raw_output}" if report_facts else raw_output
-                yield self._log(SubStage.GENERATING_INVESTMENT_REPORT, StatusType.SUCCESS, output_text)
+                yield self._log(
+                    SubStage.GENERATING_INVESTMENT_REPORT, StatusType.SUCCESS, output_text
+                )
 
             self.success = True
 

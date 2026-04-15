@@ -56,10 +56,10 @@ class StockDataFetcher:
             "cash_flow": lambda: self._ticker.cashflow,
             "quarterly_cash_flow": lambda: self._ticker.quarterly_cashflow,
         }
-        results = {
-            name: self._safe_fetch(fn, name) for name, fn in fetches.items()
-        }
-        return Financials(**{k: v if self._is_valid(v) else pd.DataFrame() for k, v in results.items()})
+        results = {name: self._safe_fetch(fn, name) for name, fn in fetches.items()}
+        return Financials(
+            **{k: v if self._is_valid(v) else pd.DataFrame() for k, v in results.items()}
+        )
 
     def fetch_market_intel(self) -> MarketIntel:
         """Fetch earnings, holders, insider trades, and recommendations.
@@ -67,14 +67,20 @@ class StockDataFetcher:
         News is fetched separately by NewsFetcher in the download pipeline.
         """
         earnings_dates = self._safe_fetch(lambda: self._ticker.earnings_dates, "earnings dates")
-        institutional = self._safe_fetch(lambda: self._ticker.institutional_holders, "institutional holders")
-        insider = self._safe_fetch(lambda: self._ticker.insider_transactions, "insider transactions")
+        institutional = self._safe_fetch(
+            lambda: self._ticker.institutional_holders, "institutional holders"
+        )
+        insider = self._safe_fetch(
+            lambda: self._ticker.insider_transactions, "insider transactions"
+        )
         major = self._safe_fetch(lambda: self._ticker.major_holders, "major holders")
         recs = self._safe_fetch(lambda: self._ticker.recommendations, "recommendations")
 
         return MarketIntel(
             earnings_dates=earnings_dates if self._is_valid(earnings_dates) else pd.DataFrame(),
-            institutional_holders=institutional if self._is_valid(institutional) else pd.DataFrame(),
+            institutional_holders=institutional
+            if self._is_valid(institutional)
+            else pd.DataFrame(),
             insider_transactions=insider if self._is_valid(insider) else pd.DataFrame(),
             major_holders=major if self._is_valid(major) else pd.DataFrame(),
             recommendations=recs if self._is_valid(recs) else pd.DataFrame(),

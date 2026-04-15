@@ -1,7 +1,5 @@
 """CSV reader tool for loading stock data from the .market_data/ directory."""
 
-from typing import Any
-
 import pandas as pd
 from crewai.tools import BaseTool
 
