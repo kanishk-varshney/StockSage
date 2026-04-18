@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Stock data fetching module using yfinance."""
 
 import logging

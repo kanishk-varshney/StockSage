@@ -1,0 +1,33 @@
+name: Validate PR title
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title follows Conventional Commits
+        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50  # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            chore
+            refactor
+            test
+            build
+            ci
+            perf
+          requireScope: false
+          subjectPattern: '^[a-z].+[^.]$'
+          subjectPatternError: |
+            PR title subject must start lowercase and not end with a period.
+            Example: `feat: add sentiment agent` (good) vs `feat: Add sentiment agent.` (bad).

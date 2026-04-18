@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Stock symbol processing pipeline."""
 
 import asyncio

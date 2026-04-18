@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Valuation & profitability card renderer."""
 
 from src.app.utils.formatters._shared import (

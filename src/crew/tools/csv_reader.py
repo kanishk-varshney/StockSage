@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """CSV reader tool for loading stock data from the .market_data/ directory."""
 
 import pandas as pd

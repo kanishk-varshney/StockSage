@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Web search tool using SerperDevTool for live news and market research."""
 
 from crewai_tools import SerperDevTool

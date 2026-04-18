@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Schema validation constants — only values actively used by schema validators."""
 
 from __future__ import annotations

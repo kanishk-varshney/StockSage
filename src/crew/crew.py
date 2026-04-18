@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """CrewAI crew for stock analysis using YAML-based agent and task definitions."""
 
 from crewai import Agent, Crew, Process, Task

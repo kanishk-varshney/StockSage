@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Enums for processing stages, substages, and status types."""
 
 from enum import Enum

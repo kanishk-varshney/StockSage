@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Google Trends fetching via pytrends."""
 
 import logging

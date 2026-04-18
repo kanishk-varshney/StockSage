@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Abstract base classes for symbol validators."""
 
 from abc import ABC, abstractmethod

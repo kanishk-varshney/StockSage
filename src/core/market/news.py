@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """News fetching via Google News (gnews)."""
 
 import logging

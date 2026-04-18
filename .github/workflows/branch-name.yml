@@ -1,0 +1,19 @@
+name: Validate branch name
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+jobs:
+  validate:
+    if: ${{ !startsWith(github.head_ref, 'dependabot/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name matches convention
+        uses: deepakputhraya/action-branch-name@5f1cc199284b75145ec2d13434422e6987cf6af8  # master @ 2024
+        with:
+          regex: '^(feat|fix|docs|chore|refactor|test)/[a-z0-9][a-z0-9-]*$'
+          allowed_prefixes: 'feat,fix,docs,chore,refactor,test'
+          ignore: main,release
+          min_length: 5
+          max_length: 80

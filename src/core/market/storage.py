@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """CSV storage module for stock data."""
 
 import logging

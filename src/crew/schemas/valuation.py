@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """ValuationOutput — ratio-based valuation analysis.
 
 Keyword-based content validators (banned terms, stance markers, CSV source

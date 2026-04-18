@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Benchmark index fetching — market index and sector ETF via yfinance."""
 
 import logging

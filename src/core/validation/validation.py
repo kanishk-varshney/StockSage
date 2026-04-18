@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Symbol validation module with hierarchical checks."""
 
 import re

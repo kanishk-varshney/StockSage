@@ -1,13 +1,29 @@
-## Summary
+## What this does
 
-<!-- What does this PR change and why? -->
+<!-- One or two lines on the change + motivation. Link an issue if one exists. -->
 
-## How tested
+Fixes #
 
-<!-- e.g. pytest, manual UI steps, symbols used -->
+## Type of change
+
+<!-- Tick what applies; delete the rest. -->
+
+- [ ] Bug fix
+- [ ] New feature / analysis card / agent
+- [ ] Breaking change
+- [ ] Refactor (no behavior change)
+- [ ] Docs / chore (docs, CI, tooling)
 
 ## Checklist
 
-- [ ] No secrets or machine-specific paths committed
-- [ ] Docs updated if behavior or setup changed (`README.md`, `docs/`, or `walkthrough.md`)
-- [ ] `pytest` passes locally
+- [ ] I've read [CONTRIBUTING.md](../CONTRIBUTING.md)
+- [ ] No duplicate [open PR](../../../pulls) for this change
+- [ ] Branch follows `<type>/<slug>` and PR title follows [Conventional Commits](https://www.conventionalcommits.org/) (CI enforces both)
+- [ ] `make test` and `make lint` pass locally
+- [ ] Docs updated if setup or behavior changed (`README.md`, `docs/`, `CHANGELOG.md`)
+- [ ] No secrets or machine-specific paths
+
+## How to verify
+
+<!-- How a reviewer can reproduce. For UI changes include a screenshot or short clip.
+     For analysis changes mention the tickers and LLM provider used. -->

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Data operations for stock data."""
 
 from src.core.market.benchmark import BenchmarkFetcher

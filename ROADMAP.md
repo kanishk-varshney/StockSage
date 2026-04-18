@@ -1,26 +1,28 @@
 # Roadmap
 
-## Scope and non-goals
+## What StockSage is
 
-StockSage is a local-first, run-it-yourself analysis tool. It is not a hosted SaaS and not personalized investment advice.
+A local-first stock analysis tool you run on your own machine with your own model (Ollama or any supported cloud provider). Not a hosted service, not investment advice.
 
-### In scope
-- Improve analysis quality, reliability, and explainability.
-- Keep model-provider setup simple across local (Ollama) and cloud APIs.
-- Maintain contributor-friendly docs and tests for core flows.
+**In scope — what we're investing in**
+- Better analysis quality and explainability (stronger agent prompts, clearer reasoning in the final verdict).
+- Simple, reliable model-provider setup across local (Ollama) and cloud APIs.
+- Contributor-friendly docs and tests for the core pipeline.
 
-### Out of scope (for now)
-- Multi-tenant auth, billing, and hosted account management.
-- Broker integrations or automated trade execution.
-- Guaranteed real-time market data SLAs.
+**Not planned:** broker integrations, automated trading, hosted multi-user accounts, real-time market data SLAs.
 
-## Near-term priorities
+## What's next
 
-1. ~~Extend integration tests for download and Crew failure edge cases.~~ (baseline in `tests/core/test_download_pipeline.py`, `tests/crew/test_pipeline_failure.py`; expand as needed.)
-2. ~~Add lightweight lint/type checks in CI.~~ (scoped `mypy` on structured-output modules; widen coverage over time.)
-3. Improve UX discoverability with real screenshots/GIF in README (assets + `scripts/capture_readme_assets.sh`; optional GIF).
-4. Add `good first issue` backlog and contributor onboarding issues (GitHub labels/issues after publish — see `docs/oss-launch-checklist.md`).
+Rough priority order. Open an issue if you'd like to pick one up.
+
+1. **Publish to PyPI** so installing becomes `pip install stocksage`.
+2. **Automated releases** — on merge to `main`, parse Conventional Commit titles to bump the version in `pyproject.toml`, regenerate `CHANGELOG.md`, and open a release PR; on a `v*.*.*` tag, build and publish the wheel to PyPI.
+3. **Troubleshooting guide** — common setup issues (Ollama not reachable, provider rate limits, stale cached data).
+4. **More robust tests** for the live SSE stream and higher coverage on the analysis pipeline.
+5. **Community surface** — enable GitHub Discussions, seed a few good-first-issues, add searchable repo topics.
+6. **New analysis cards or agents** — sector comparison, peer benchmarks, earnings-call sentiment. Ideas welcome in issues.
+7. **Concurrent analyses** — support multiple tickers in parallel. Today a second request fails or reports "already in progress"; we want per-request isolation so different users (or tabs) can analyze independently.
 
 ## License
 
-Released under the MIT License.
+MIT. See [LICENSE](LICENSE).

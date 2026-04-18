@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Validation logic for stock symbols."""
 
 from src.core.validation.validation import validate_symbol

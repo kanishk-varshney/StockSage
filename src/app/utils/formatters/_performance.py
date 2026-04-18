@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Price performance & risk card renderer."""
 
 from src.app.utils.formatters._shared import (

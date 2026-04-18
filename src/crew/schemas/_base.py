@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Shared normalisation helpers used by schema validators.
 
 Pure functions that multiple schema modules call to keep normalisation
