@@ -22,7 +22,7 @@
         
       
       
-      <link rel="icon" href="../assets/images/favicon.png">
+      <link rel="icon" href="../assets/favicon.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
@@ -94,8 +94,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="StockSage" class="md-header__button md-logo" aria-label="StockSage" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../assets/favicon.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -381,8 +380,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="StockSage" class="md-nav__button md-logo" aria-label="StockSage" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../assets/favicon.svg" alt="logo">
 
     </a>
     StockSage
@@ -930,6 +928,67 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#before-you-push" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Before you push
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#branching-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Branching &amp; commits
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Branching &amp; commits">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#branch-names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Branch names
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pr-titles-conventional-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PR titles — Conventional Commits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#signed-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signed commits
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#pull-requests" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1183,6 +1242,67 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#before-you-push" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Before you push
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#branching-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Branching &amp; commits
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Branching &amp; commits">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#branch-names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Branch names
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pr-titles-conventional-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PR titles — Conventional Commits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#signed-commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Signed commits
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#pull-requests" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1294,6 +1414,76 @@
 </code></pre></div>
 <p>Or: <code>python -m pytest</code> / <code>uv run pytest</code></p>
 <p>Keep new behavior covered when it is easy to test; UI-heavy changes may rely on manual checks—note that in your PR.</p>
+<h2 id="before-you-push">Before you push</h2>
+<p>CI runs these same checks — run them locally first to avoid round-trips:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>make<span class="w"> </span>install<span class="w">                         </span><span class="c1"># one-time: installs the pre-commit git hook</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>run<span class="w"> </span>--all-files<span class="w">    </span><span class="c1"># formatting, whitespace, YAML/TOML checks</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>make<span class="w"> </span>lint<span class="w">                            </span><span class="c1"># ruff</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>make<span class="w"> </span>typecheck<span class="w">                       </span><span class="c1"># mypy (scoped)</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>make<span class="w"> </span><span class="nb">test</span><span class="w">                            </span><span class="c1"># pytest with coverage</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>make<span class="w"> </span>security<span class="w">                        </span><span class="c1"># pip-audit + bandit</span>
+</code></pre></div>
+<p><code>make install</code> only needs to run once per clone. After that, failing hook checks block <code>git commit</code> locally, so you never push broken formatting or trailing whitespace.</p>
+<h2 id="branching-commits">Branching &amp; commits</h2>
+<p>StockSage follows <strong>trunk-based development</strong>: <code>main</code> is always releasable, and work happens on short-lived branches.</p>
+<h3 id="branch-names">Branch names</h3>
+<p>All branches (except <code>main</code> and <code>release</code>) must match:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>^(feat|fix|docs|chore|refactor|test)/[a-z0-9][a-z0-9-]*$
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>When to use</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>feat/</code></td>
+<td>New user-visible feature</td>
+<td><code>feat/sector-comparison-card</code></td>
+</tr>
+<tr>
+<td><code>fix/</code></td>
+<td>Bug fix</td>
+<td><code>fix/flex-item-null-display</code></td>
+</tr>
+<tr>
+<td><code>docs/</code></td>
+<td>Docs-only change</td>
+<td><code>docs/groq-provider-example</code></td>
+</tr>
+<tr>
+<td><code>test/</code></td>
+<td>Test-only change</td>
+<td><code>test/download-pipeline-mock</code></td>
+</tr>
+<tr>
+<td><code>refactor/</code></td>
+<td>Internal restructure, no behavior change</td>
+<td><code>refactor/schema-validators</code></td>
+</tr>
+<tr>
+<td><code>chore/</code></td>
+<td>Tooling, CI, deps, repo hygiene</td>
+<td><code>chore/repo-hygiene-and-branching</code></td>
+</tr>
+</tbody>
+</table>
+<p>Enforced by <code>.github/workflows/branch-name.yml</code> on every PR (Dependabot branches are exempt).</p>
+<h3 id="pr-titles-conventional-commits">PR titles — Conventional Commits</h3>
+<p>PR titles must follow <a href="https://www.conventionalcommits.org/">Conventional Commits</a>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>&lt;type&gt;: &lt;lowercase subject, no trailing period&gt;
+</code></pre></div>
+<p>Allowed types: <code>feat, fix, docs, chore, refactor, test, build, ci, perf</code>.</p>
+<p>Enforced by <code>.github/workflows/semantic-pr.yml</code>. The title (not individual commits) becomes the squash-merge commit message, which lets us automate <code>CHANGELOG.md</code> later.</p>
+<h3 id="signed-commits">Signed commits</h3>
+<p><code>main</code> has <code>required_signatures=true</code>. Every commit merged into <code>main</code> must be GPG- or SSH-signed. Locally:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>git config --global commit.gpgsign true
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>git config --global user.signingkey &lt;your-key-id&gt;
+</code></pre></div>
+<p>See <a href="https://docs.github.com/en/authentication/managing-commit-signature-verification">GitHub's signing guide</a> for setup.</p>
 <h2 id="pull-requests">Pull requests</h2>
 <ul>
 <li><strong>Scope:</strong> One logical change per PR when possible.</li>
