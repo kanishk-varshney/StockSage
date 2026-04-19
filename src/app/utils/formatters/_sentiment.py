@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Market sentiment & news card renderer."""
 
 import re

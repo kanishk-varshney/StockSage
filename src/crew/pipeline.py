@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Analysis pipeline that bridges CrewAI execution with the LogEntry streaming system."""
 
 import asyncio

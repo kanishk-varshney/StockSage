@@ -10,7 +10,7 @@ Please **do not** open a public GitHub issue for security vulnerabilities.
 
 Instead:
 
-1. Open a **private security advisory** on GitHub (Repository → **Security** → **Advisories** → **Report a vulnerability**), or  
+1. Open a **private security advisory** on GitHub (Repository → **Security** → **Advisories** → **Report a vulnerability**), or
 2. Contact maintainers through a private channel if one is listed on the repository.
 
 Include:

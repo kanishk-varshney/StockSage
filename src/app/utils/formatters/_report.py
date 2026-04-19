@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Final investment report card renderer."""
 
 import re

@@ -98,4 +98,3 @@ To debug failures:
 - Check `success: false`
 - Check `error.message` and `error.traceback`
 - Inspect `events` for retry/rate-limit behavior
-

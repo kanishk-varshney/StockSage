@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """SentimentOutput — market-sentiment and analyst-expectation analysis.
 
 Keyword-based content validators (expectation terms, banned terms, directional

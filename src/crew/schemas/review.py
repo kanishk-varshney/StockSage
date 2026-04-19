@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """ReviewOutput — cross-agent consistency review.
 
 Keyword-based content validators (banned terms, scope terms, mismatch terms,

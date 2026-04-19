@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Shared helpers, constants, and utilities used by all card renderers."""
 
 import html

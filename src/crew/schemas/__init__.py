@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Pydantic schemas for structured Crew task outputs.
 
 Import any public schema from this package directly::

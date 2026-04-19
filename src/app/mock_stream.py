@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Mock SSE stream for fast frontend/UI iteration in dev mode."""
 
 import asyncio

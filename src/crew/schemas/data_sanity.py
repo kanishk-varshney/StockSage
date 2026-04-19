@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """DataSanityOutput — validates data completeness before analysis begins."""
 
 from __future__ import annotations

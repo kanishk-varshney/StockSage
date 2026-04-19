@@ -80,6 +80,67 @@ Or: `python -m pytest` / `uv run pytest`
 
 Keep new behavior covered when it is easy to test; UI-heavy changes may rely on manual checks—note that in your PR.
 
+## Before you push
+
+CI runs these same checks — run them locally first to avoid round-trips:
+
+```bash
+make install                         # one-time: installs the pre-commit git hook
+uv run pre-commit run --all-files    # formatting, whitespace, YAML/TOML checks
+make lint                            # ruff
+make typecheck                       # mypy (scoped)
+make test                            # pytest with coverage
+make security                        # pip-audit + bandit
+```
+
+`make install` only needs to run once per clone. After that, failing hook checks block `git commit` locally, so you never push broken formatting or trailing whitespace.
+
+## Branching & commits
+
+StockSage follows **trunk-based development**: `main` is always releasable, and work happens on short-lived branches.
+
+### Branch names
+
+All branches (except `main` and `release`) must match:
+
+```
+^(feat|fix|docs|chore|refactor|test)/[a-z0-9][a-z0-9-]*$
+```
+
+| Type | When to use | Example |
+|------|-------------|---------|
+| `feat/` | New user-visible feature | `feat/sector-comparison-card` |
+| `fix/` | Bug fix | `fix/flex-item-null-display` |
+| `docs/` | Docs-only change | `docs/groq-provider-example` |
+| `test/` | Test-only change | `test/download-pipeline-mock` |
+| `refactor/` | Internal restructure, no behavior change | `refactor/schema-validators` |
+| `chore/` | Tooling, CI, deps, repo hygiene | `chore/repo-hygiene-and-branching` |
+
+Enforced by `.github/workflows/branch-name.yml` on every PR (Dependabot branches are exempt).
+
+### PR titles — Conventional Commits
+
+PR titles must follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>: <lowercase subject, no trailing period>
+```
+
+Allowed types: `feat, fix, docs, chore, refactor, test, build, ci, perf`.
+
+Enforced by `.github/workflows/semantic-pr.yml`. The title (not individual commits) becomes the squash-merge commit message, which lets us automate `CHANGELOG.md` later.
+
+### Signed commits
+
+`main` has `required_signatures=true`. Every commit merged into `main` must be GPG- or SSH-signed. Locally:
+
+```
+git config --global commit.gpgsign true
+git config --global user.signingkey <your-key-id>
+```
+
+See [GitHub's signing guide](https://docs.github.com/en/authentication/managing-commit-signature-verification) for setup.
+
 ## Pull requests
 
 - **Scope:** One logical change per PR when possible.

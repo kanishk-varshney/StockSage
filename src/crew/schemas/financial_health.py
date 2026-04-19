@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """FinancialHealthOutput — balance-sheet and growth health check."""
 
 from __future__ import annotations

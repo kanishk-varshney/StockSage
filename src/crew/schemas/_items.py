@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Shared Pydantic item models used across multiple output schemas.
 
 Keyword-based content validators (evidence regex, comparative note checks) have

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """PerformanceOutput — price-performance and risk profile.
 
 Keyword-based content validators (banned terms, risk markers, metric note

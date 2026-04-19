@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Processing orchestration for stock symbols."""
 
 from src.core.processing.download_pipeline import DownloadPipeline

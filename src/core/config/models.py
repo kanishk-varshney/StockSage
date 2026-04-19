@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Data models for processing logs."""
 
 from dataclasses import dataclass

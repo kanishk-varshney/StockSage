@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Data quality / data sanity card renderer."""
 
 from src.app.utils.formatters._shared import (

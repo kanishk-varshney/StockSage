@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Data models for stock market data, grouped by category."""
 
 from dataclasses import dataclass, field

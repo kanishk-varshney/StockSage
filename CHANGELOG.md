@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- Branching & commit conventions enforced in CI (`.github/workflows/branch-name.yml`, `.github/workflows/semantic-pr.yml`) and documented in `CONTRIBUTING.md`.
+- `CLAUDE.md` — guidance for Claude Code / future AI agents working in this repo.
 - `docs/stream-api.md` — SSE event shapes for `/stream` and `/stream/mock`.
 - `scripts/capture_readme_assets.sh` — helper to refresh README screenshots (macOS-friendly).
 - `.github/dependabot.yml` — weekly pip and GitHub Actions updates.
@@ -20,6 +22,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - README Quickstart clone URL now points at the canonical GitHub repo.
+
+### Notes
+- Git history before `0.1.0` was squashed. Early commits were personal PoC work and not intended for sharing, so the pre-squash history is not preserved.
 
 ## [0.1.0] - 2026-04-06
 

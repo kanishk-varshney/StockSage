@@ -59,7 +59,7 @@ jobs:
         run: uv sync --frozen --extra dev
 
       - name: Dependency vulnerability audit
-        run: uv run pip-audit --requirement <(uv export --no-hashes --extra dev) || true
+        run: uv run pip-audit --requirement <(uv export --no-hashes --extra dev)
 
       - name: Static security scan
         run: uv run bandit -r src/ -ll -q

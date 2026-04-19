@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """LLM factory — builds a CrewAI LLM instance using LiteLLM under the hood.
 
 Switching providers requires only changing the LLM_MODEL env var.
@@ -35,12 +36,15 @@ def _is_ollama_model(model: str) -> bool:
 
 def _ollama_reachable(base_url: str, model: str) -> bool:
     """Check if Ollama is running and has the requested model pulled."""
+    if not base_url.startswith(("http://", "https://")):
+        return False
     tags_url = f"{base_url.rstrip('/')}/api/tags"
     model_name = model.split("/", 1)[1].strip() if "/" in model else ""
     if not model_name:
         return False
     try:
-        with urlopen(Request(tags_url, method="GET"), timeout=3) as resp:
+        # Scheme is validated above; bandit B310 is a blanket warning on urlopen.
+        with urlopen(Request(tags_url, method="GET"), timeout=3) as resp:  # nosec B310
             if not (200 <= resp.status < 300):
                 return False
             payload = json.loads(resp.read().decode("utf-8"))

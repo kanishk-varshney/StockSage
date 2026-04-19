@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Structured-output schema registry, validation, and serializers."""
 
 from __future__ import annotations

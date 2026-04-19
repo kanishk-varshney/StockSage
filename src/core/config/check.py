@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Validate LLM / environment configuration before running the app.
 
 Usage (from repository root):

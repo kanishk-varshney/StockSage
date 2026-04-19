@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Financial health card renderer."""
 
 from src.app.utils.formatters._shared import (

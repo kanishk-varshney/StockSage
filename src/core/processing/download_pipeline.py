@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Orchestrates the multi-step download sequence for a stock symbol."""
 
 import logging

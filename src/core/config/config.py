@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Configuration settings — single source of truth for all app config."""
 
 import os

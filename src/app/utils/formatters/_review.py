@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Quality review card renderer."""
 
 from src.app.utils.formatters._shared import (

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """FinalReportOutput — investment decision and recommendation.
 
 Keyword-based content validators (banned terms, metric restatement filtering,

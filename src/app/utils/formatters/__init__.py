@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Log formatting utilities — wireframe-matched Tailwind HTML rendering.
 
 Public API: ``format_log_entry(log_entry) -> str``

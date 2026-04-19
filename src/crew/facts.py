@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Deterministic facts builder for stable UI metrics."""
 
 from __future__ import annotations

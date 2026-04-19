@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Shared filesystem/data contract constants for stock CSV artifacts."""
 
 from src.core.config.config import OUTPUT_DIR_PATH

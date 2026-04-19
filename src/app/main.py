@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """FastAPI application for StockSage UI."""
 
 import asyncio
